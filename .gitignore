@@ -1,2 +1,7 @@
 docs/plans
 research
+target/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
