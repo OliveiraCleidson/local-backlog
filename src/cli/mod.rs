@@ -14,6 +14,7 @@ pub mod attr;
 pub mod done;
 pub mod edit;
 pub mod events;
+pub mod export;
 pub mod init;
 pub mod link;
 pub mod list;
@@ -47,6 +48,8 @@ pub enum Command {
     Attr(attr::AttrArgs),
     /// Timeline de eventos da task.
     Events(events::EventsArgs),
+    /// Dump do tenant em markdown ou JSON (contexto para IA).
+    Export(export::ExportArgs),
 }
 
 pub fn dispatch(cmd: Command, app: &mut App, cwd: &Path) -> Result<(), BacklogError> {
@@ -63,6 +66,7 @@ pub fn dispatch(cmd: Command, app: &mut App, cwd: &Path) -> Result<(), BacklogEr
         Command::Link(args) => link::run(args, app, cwd),
         Command::Attr(args) => attr::run(args, app, cwd),
         Command::Events(args) => events::run(args, app, cwd),
+        Command::Export(args) => export::run(args, app, cwd),
     }
 }
 
