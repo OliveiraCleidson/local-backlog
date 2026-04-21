@@ -95,11 +95,31 @@ fn list(args: ListArgs, app: &App) -> Result<(), BacklogError> {
     if !args.include_archived {
         all.retain(|p| p.archived_at.is_none());
     }
+    let mut rows: Vec<(Project, i64)> = Vec::with_capacity(all.len());
+    for p in all {
+        let count = project_repo::count_active_tasks(&app.conn, p.id)?;
+        rows.push((p, count));
+    }
 
     let out = match fmt {
-        Format::Json => serde_json::to_string_pretty(&JsonEnvelope::new(&all))
-            .unwrap_or_else(|_| "{}".to_string()),
-        Format::Table => render_projects_table(&all),
+        Format::Json => {
+            let data: Vec<serde_json::Value> = rows
+                .iter()
+                .map(|(p, c)| {
+                    serde_json::json!({
+                        "id": p.id,
+                        "name": p.name,
+                        "root_path": p.root_path,
+                        "description": p.description,
+                        "archived_at": p.archived_at,
+                        "active_task_count": c,
+                    })
+                })
+                .collect();
+            serde_json::to_string_pretty(&JsonEnvelope::new(&data))
+                .unwrap_or_else(|_| "{}".to_string())
+        }
+        Format::Table => render_projects_table(&rows),
     };
     let trimmed = out.strip_suffix('\n').unwrap_or(&out);
     stdout_data(trimmed);
@@ -109,11 +129,24 @@ fn list(args: ListArgs, app: &App) -> Result<(), BacklogError> {
 fn show(args: ShowArgs, app: &App) -> Result<(), BacklogError> {
     let fmt = parse_format(&args.format)?;
     let project = resolve(app, &args.target)?;
+    let count = project_repo::count_active_tasks(&app.conn, project.id)?;
 
     let out = match fmt {
-        Format::Json => serde_json::to_string_pretty(&JsonEnvelope::new(&project))
-            .unwrap_or_else(|_| "{}".to_string()),
-        Format::Table => render_project_detail(&project),
+        Format::Json => {
+            let payload = serde_json::json!({
+                "id": project.id,
+                "name": project.name,
+                "root_path": project.root_path,
+                "description": project.description,
+                "archived_at": project.archived_at,
+                "created_at": project.created_at,
+                "updated_at": project.updated_at,
+                "active_task_count": count,
+            });
+            serde_json::to_string_pretty(&JsonEnvelope::new(&payload))
+                .unwrap_or_else(|_| "{}".to_string())
+        }
+        Format::Table => render_project_detail(&project, count),
     };
     let trimmed = out.strip_suffix('\n').unwrap_or(&out);
     stdout_data(trimmed);
@@ -186,14 +219,15 @@ fn archive(args: ArchiveArgs, app: &mut App) -> Result<(), BacklogError> {
     Ok(())
 }
 
-fn render_projects_table(all: &[Project]) -> String {
-    if all.is_empty() {
+fn render_projects_table(rows: &[(Project, i64)]) -> String {
+    if rows.is_empty() {
         return "nenhum projeto registrado\n".to_string();
     }
     let mut w_id = "ID".len();
     let mut w_name = "NAME".len();
     let mut w_status = "STATUS".len();
-    for p in all {
+    let mut w_tasks = "TASKS".len();
+    for (p, c) in rows {
         w_id = w_id.max(p.id.to_string().len());
         w_name = w_name.max(p.name.len());
         let status = if p.archived_at.is_some() {
@@ -202,40 +236,45 @@ fn render_projects_table(all: &[Project]) -> String {
             "active"
         };
         w_status = w_status.max(status.len());
+        w_tasks = w_tasks.max(c.to_string().len());
     }
 
     let mut out = String::new();
     out.push_str(&format!(
-        "{:>w_id$}  {:<w_name$}  {:<w_status$}  {}\n",
+        "{:>w_id$}  {:<w_name$}  {:<w_status$}  {:>w_tasks$}  {}\n",
         "ID",
         "NAME",
         "STATUS",
+        "TASKS",
         "PATH",
         w_id = w_id,
         w_name = w_name,
         w_status = w_status,
+        w_tasks = w_tasks,
     ));
-    for p in all {
+    for (p, c) in rows {
         let status = if p.archived_at.is_some() {
             "archived"
         } else {
             "active"
         };
         out.push_str(&format!(
-            "{:>w_id$}  {:<w_name$}  {:<w_status$}  {}\n",
+            "{:>w_id$}  {:<w_name$}  {:<w_status$}  {:>w_tasks$}  {}\n",
             p.id,
             p.name,
             status,
+            c,
             p.root_path,
             w_id = w_id,
             w_name = w_name,
             w_status = w_status,
+            w_tasks = w_tasks,
         ));
     }
     out
 }
 
-fn render_project_detail(p: &Project) -> String {
+fn render_project_detail(p: &Project, active_task_count: i64) -> String {
     use std::fmt::Write;
     let mut s = String::new();
     let _ = writeln!(s, "id:          {}", p.id);
@@ -249,5 +288,6 @@ fn render_project_detail(p: &Project) -> String {
     }
     let _ = writeln!(s, "created_at:  {}", p.created_at);
     let _ = writeln!(s, "updated_at:  {}", p.updated_at);
+    let _ = writeln!(s, "active_tasks: {active_task_count}");
     s
 }

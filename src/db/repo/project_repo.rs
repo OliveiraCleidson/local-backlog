@@ -69,6 +69,16 @@ pub fn list_all(conn: &Connection) -> Result<Vec<Project>, BacklogError> {
     Ok(out)
 }
 
+/// Conta tasks ativas (não arquivadas) de um projeto.
+pub fn count_active_tasks(conn: &Connection, project_id: i64) -> Result<i64, BacklogError> {
+    let n: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM tasks WHERE project_id = ?1 AND archived_at IS NULL",
+        params![project_id],
+        |r| r.get(0),
+    )?;
+    Ok(n)
+}
+
 pub fn update_root_path(conn: &Connection, id: i64, new_path: &str) -> Result<(), BacklogError> {
     conn.execute(
         "UPDATE projects SET root_path = ?1, updated_at = datetime('now') WHERE id = ?2",
