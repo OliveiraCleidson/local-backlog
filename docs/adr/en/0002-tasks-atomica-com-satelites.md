@@ -5,41 +5,65 @@
 
 ## Context
 
-Personal backlogs grow in unforeseen dimensions: estimations, area/service, effort, plan anchors, PR links, external references. Modeling everything as columns in `tasks` forces a migration for every new idea. Modeling everything as EAV (Entity-Attribute-Value) from the start dilutes the performance of common queries and complicates filtering.
+Personal backlogs expand in unpredictable ways, incorporating estimations, areas, services, levels of effort, plan anchors, pull request links, and external references. Representing every new attribute as a column in the `tasks` table would necessitate a database migration for each addition. Conversely, using an Entity-Attribute-Value (EAV) model for everything from the outset would degrade query performance and complicate filtering.
 
-The user's explicit requirement: evolutionary architecture — **start simple, allow extension without modification**.
+The user's requirement is for an evolutionary architecture: start simply and allow for extensions without modifying the core structure.
 
 ## Decision
 
-`tasks` is the central table with the minimum set every task has: `id`, `project_id`, `title`, `body`, `status`, `priority`, `type`, `parent_id`, `archived_at`, `completed_at`, `created_at`, `updated_at`.
+The `tasks` table is the central entity, containing the minimum set of attributes common to every task: `id`, `project_id`, `title`, `body`, `status`, `priority`, `type`, `parent_id`, `archived_at`, `completed_at`, `created_at`, and `updated_at`.
 
-Every dimension beyond this core goes into satellite tables:
+Additional attributes are stored in satellite tables:
 
-- **`tags` + `task_tags`** — free labeling per tenant.
-- **`task_attributes(task_id, key, value)`** — EAV for ad-hoc fields (estimates, service, area, external references).
-- **`task_links(from_id, to_id, kind)`** — typed relationships (`blocks`, `relates`, `duplicates`, `spawned-from-plan`).
-- **`task_events(task_id, ts, kind, payload)`** — append-only log of changes (status change, tag added, AI suggested, etc.). `payload` is `TEXT` holding **serialized JSON** (schema is free per `kind`), never an arbitrary string; consumers can inspect it via SQLite's `json_extract()` without needing to promote dimensions.
+- **`tags` + `task_tags`**: Provides flexible labeling for each tenant.
+- **`task_attributes(task_id, key, value)`**: An EAV model for ad-hoc fields, such as estimates, services, areas, and external references.
+- **`task_links(from_id, to_id, kind)`**: Defines typed relationships, including `blocks`, `relates`, `duplicates`, and `spawned-from-plan`.
+- **`task_events(task_id, ts, kind, payload)`**: An append-only log of changes, such as status updates, tag additions, and AI-suggested modifications. The `payload` is a `TEXT` field containing serialized JSON with a kind-specific schema, rather than an arbitrary string. This allows users to inspect data using SQLite's `json_extract()` without requiring dimension promotion.
 
-Promotion Rule: when a key in `task_attributes` appears in ≥80% of active tasks, or becomes a recurring filter criterion, it is migrated to a column in `tasks` via a new migration. Promotion is a conscious decision, not an automatic one.
+**Promotion Rule:** If a key in `task_attributes` appears in 80% or more of active tasks, or if it becomes a frequent filter criterion, it will be migrated to a column in the `tasks` table through a new migration. Promotion is an intentional decision, not an automatic process.
 
 ## Consequences
 
 **Positive:**
-- Adding a new dimension is zero-migration (new key in `task_attributes`).
-- A small core keeps common queries (`list`, `show`) fast and indices simple.
-- `task_events` provides auditing and a foundation for future metrics (lead time, throughput) without retrofitting.
-- Independent satellites evolve at their own pace.
+- Introducing a new dimension does not require a migration, as it simply involves adding a new key to `task_attributes`.
+- Maintaining a small core ensures that common queries, such as `list` and `show`, remain fast and that indices stay simple.
+- The `task_events` table provides an audit trail and serves as a foundation for future metrics, such as lead time and throughput, without needing retrofits.
+- Satellite tables can evolve independently.
 
 **Negative:**
-- EAV penalizes queries that filter by rare keys (scan of `task_attributes`). Mitigation: create a partial index when it hurts; promote to a column when it proves its weight.
-- More joins in queries that need to gather everything (accepted — `show` performs 4-5 joins, runs locally on SQLite and responds in ms).
-- Two extension mechanisms (attributes vs. tags) can be confusing — **rule of thumb:** tags are free categorical filters; attributes are key-value pairs. Document in the README.
+- The EAV model can penalize queries filtering by rare keys, as it requires scanning `task_attributes`. Mitigation: Create partial indices when performance issues arise, or promote the attribute to a column when its usage justifies the change.
+- Queries that must aggregate all data will require more joins. This is acceptable, as the `show` command performs four to five joins and runs locally on SQLite with millisecond response times.
+- Having two extension mechanisms (attributes and tags) could be confusing. As a rule of thumb: tags are flexible categorical filters, while attributes are key-value pairs. This distinction will be documented in the README.
 
 ## Alternatives Considered
 
-- **JSON in a single column** (`tasks.metadata JSON`) — rejected: SQLite supports JSON1 but indexing is fragile; pure EAV provides better diagnostics and future migration.
-- **Strict schema-first (every dimension becomes a column)** — rejected: violates the evolutionary premise; every new idea costs a migration + release.
-- **Document store (e.g., file per task)** — rejected: loses relational queries and the entire point of SQLite.
+- **Storing JSON in a single column (`tasks.metadata JSON`)** (Rejected): Although SQLite supports JSON1, indexing can be fragile. A pure EAV model provides superior diagnostics and simpler future migrations.
+- **A strict, schema-first approach** (Rejected): This violates the evolutionary design premise, as every new idea would necessitate a migration and a new release.
+- **A document-oriented store (e.g., a file per task)** (Rejected): This would sacrifice relational queries and the benefits of using SQLite.
+
+## Appendix: `task_events` payload schema
+
+Each event has a `kind` and a JSON `payload`. The table below documents the set emitted by the CLI in the current version. Consumers must tolerate unknown fields (forward-compat).
+
+| `kind`           | Emitted by                          | Payload                                                      |
+|------------------|-------------------------------------|--------------------------------------------------------------|
+| `created`        | `backlog add`                       | `{ "title": string, "type": string, "priority": integer }`   |
+| `status_changed` | `backlog done`                      | `{ "from": string, "to": string }`                           |
+| `archived`       | `backlog archive`                   | `{}`                                                         |
+| `field_changed`  | `backlog edit` (one event per changed field) | `{ "field": string, "from": any\|null, "to": any\|null }` |
+| `tag_added`      | `backlog tag add`                   | `{ "tag": string }`                                          |
+| `tag_removed`    | `backlog tag remove`                | `{ "tag": string }`                                          |
+| `link_added`     | `backlog link ... --kind X`         | `{ "to": integer, "kind": string }`                          |
+| `link_removed`   | `backlog link ... --kind X --remove`| `{ "to": integer, "kind": string }`                          |
+| `attr_set`       | `backlog attr set`                  | `{ "key": string, "from": string\|null, "to": string }`      |
+| `attr_unset`     | `backlog attr unset`                | `{ "key": string }`                                          |
+
+Invariants:
+
+- `payload` is always a JSON object (never a top-level scalar or array).
+- `from`/`to` fields in `field_changed` and `attr_set` may be `null` (field cleared or previously absent).
+- `kind` names are stable: changing one breaks external consumers and requires a new ADR superseding this one.
+- New `kind`s are additive — `backlog events` ignores unknown kinds without error.
 
 ## Related
 
