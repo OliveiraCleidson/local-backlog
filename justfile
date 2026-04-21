@@ -22,3 +22,6 @@ bacon:
 
 review:
     cargo insta review
+
+# Alias para uso em git hooks (`pre-commit`). Ver docs/pre-commit.md.
+pre-commit: check
