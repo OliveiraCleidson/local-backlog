@@ -18,7 +18,7 @@ pub struct Task {
     pub title: String,
     pub body: Option<String>,
     pub status: String,
-    pub priority: Option<i64>,
+    pub priority: i64,
     pub task_type: Option<String>,
     pub parent_id: Option<i64>,
     pub archived_at: Option<String>,

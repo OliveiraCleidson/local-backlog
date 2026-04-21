@@ -16,6 +16,7 @@ pub struct Config {
     pub task_type: TaskTypeConfig,
     pub priority: PriorityConfig,
     pub id: IdConfig,
+    pub link: LinkConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,15 +32,35 @@ pub struct TaskTypeConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PriorityConfig {
-    pub min: i64,
-    pub max: i64,
     pub default: i64,
+    pub order: PriorityOrder,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PriorityOrder {
+    Asc,
+    Desc,
+}
+
+impl PriorityOrder {
+    pub fn sql(self) -> &'static str {
+        match self {
+            Self::Asc => "ASC",
+            Self::Desc => "DESC",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdConfig {
     /// Valores aceitos: `integer`, `prefixed`.
     pub display: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LinkConfig {
+    pub kinds: Vec<String>,
 }
 
 impl Default for Config {
@@ -59,12 +80,17 @@ impl Default for Config {
                     .collect(),
             },
             priority: PriorityConfig {
-                min: 0,
-                max: 3,
-                default: 0,
+                default: 100,
+                order: PriorityOrder::Asc,
             },
             id: IdConfig {
                 display: "integer".to_string(),
+            },
+            link: LinkConfig {
+                kinds: ["blocks", "relates", "duplicates", "spawned-from-plan"]
+                    .into_iter()
+                    .map(String::from)
+                    .collect(),
             },
         }
     }
