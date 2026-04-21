@@ -11,6 +11,7 @@ use crate::resolver::{self, ResolvedTenant};
 pub mod add;
 pub mod archive;
 pub mod done;
+pub mod edit;
 pub mod init;
 pub mod list;
 pub mod projects;
@@ -32,6 +33,8 @@ pub enum Command {
     Archive(archive::ArchiveArgs),
     /// Administra projetos (superfície cross-tenant).
     Projects(projects::ProjectsArgs),
+    /// Edita campos de uma task.
+    Edit(edit::EditArgs),
 }
 
 pub fn dispatch(cmd: Command, app: &mut App, cwd: &Path) -> Result<(), BacklogError> {
@@ -43,6 +46,7 @@ pub fn dispatch(cmd: Command, app: &mut App, cwd: &Path) -> Result<(), BacklogEr
         Command::Done(args) => done::run(args, app, cwd),
         Command::Archive(args) => archive::run(args, app, cwd),
         Command::Projects(args) => projects::run(args, app, cwd),
+        Command::Edit(args) => edit::run(args, app, cwd),
     }
 }
 
