@@ -1,6 +1,4 @@
 //! Subcomandos do binário `backlog`.
-//!
-//! Cada módulo expõe um `XxxArgs` (derive clap) + `run(args, app, cwd)`.
 
 use std::path::Path;
 
@@ -8,17 +6,45 @@ use clap::Subcommand;
 
 use crate::bootstrap::App;
 use crate::error::BacklogError;
+use crate::resolver::{self, ResolvedTenant};
 
+pub mod add;
 pub mod init;
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
     /// Registra o projeto atual no registry global.
     Init(init::InitArgs),
+    /// Adiciona uma task no tenant atual.
+    Add(add::AddArgs),
 }
 
 pub fn dispatch(cmd: Command, app: &mut App, cwd: &Path) -> Result<(), BacklogError> {
     match cmd {
         Command::Init(args) => init::run(args, app, cwd),
+        Command::Add(args) => add::run(args, app, cwd),
+    }
+}
+
+/// Resolve o tenant da CWD; usado por todos subcomandos de dados.
+pub(crate) fn resolve_tenant(app: &App, cwd: &Path) -> Result<ResolvedTenant, BacklogError> {
+    resolver::resolve(cwd, &app.conn, &app.registry)
+}
+
+/// Valida que `value` pertence à lista `allowed`. Erro produz `InvalidEnum`
+/// com campo, valor recebido e whitelist legível.
+pub(crate) fn validate_enum(
+    field: &'static str,
+    value: &str,
+    allowed: &[String],
+) -> Result<(), BacklogError> {
+    if allowed.iter().any(|a| a == value) {
+        Ok(())
+    } else {
+        Err(BacklogError::InvalidEnum {
+            field,
+            value: value.to_string(),
+            allowed: allowed.join(", "),
+        })
     }
 }
