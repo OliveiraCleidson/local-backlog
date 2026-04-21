@@ -17,7 +17,7 @@ use crate::db::events;
 use crate::db::repo::{attr_repo, link_repo, project_repo, tag_repo, task_repo};
 use crate::domain::Task;
 use crate::error::BacklogError;
-use crate::format::{Format, JsonEnvelope};
+use crate::format::{Format, SCHEMA_VERSION};
 use crate::output::stdout_data;
 
 #[derive(Args, Debug)]
@@ -49,6 +49,14 @@ pub struct ExportArgs {
     /// Inclui timeline de eventos por task.
     #[arg(long, default_value_t = false)]
     pub include_events: bool,
+
+    /// Inclui apenas tasks com `updated_at >= SINCE` (ex.: `2026-04-01`).
+    #[arg(long)]
+    pub since: Option<String>,
+
+    /// Inclui apenas tasks com `updated_at <= UNTIL` (ex.: `2026-04-30`).
+    #[arg(long)]
+    pub until: Option<String>,
 }
 
 pub fn run(args: ExportArgs, app: &mut App, cwd: &Path) -> Result<(), BacklogError> {
@@ -143,6 +151,16 @@ fn collect_rows(
             .collect();
         if !args.tag.is_empty() && !args.tag.iter().any(|t| tag_names.iter().any(|n| n == t)) {
             continue;
+        }
+        if let Some(since) = args.since.as_deref() {
+            if task.updated_at.as_str() < since {
+                continue;
+            }
+        }
+        if let Some(until) = args.until.as_deref() {
+            if task.updated_at.as_str() > until {
+                continue;
+            }
         }
 
         let attrs = attr_repo::list_for_task(&app.conn, project_id, task.id)?;
@@ -378,6 +396,7 @@ struct ExportJsonEvent<'a> {
 
 #[derive(Serialize)]
 struct ExportJsonPayload<'a> {
+    schema_version: u32,
     project: ExportJsonProject<'a>,
     tasks: Vec<ExportJsonTask<'a>>,
 }
@@ -427,6 +446,7 @@ fn render_json(
         .collect();
 
     let payload = ExportJsonPayload {
+        schema_version: SCHEMA_VERSION,
         project: ExportJsonProject {
             id: project.id,
             name: &project.name,
@@ -436,7 +456,6 @@ fn render_json(
         },
         tasks,
     };
-    let envelope = JsonEnvelope::new(payload);
-    serde_json::to_string_pretty(&envelope)
+    serde_json::to_string_pretty(&payload)
         .map_err(|e| BacklogError::InvalidInput(format!("falha ao serializar export: {e}")))
 }

@@ -103,8 +103,8 @@ fn json_export_has_envelope_and_project() {
     let json = run(base.path(), &cwd, &["export", "--format", "json"]);
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(v["schema_version"], 1);
-    assert_eq!(v["data"]["project"]["name"], "proj");
-    let tasks = v["data"]["tasks"].as_array().unwrap();
+    assert_eq!(v["project"]["name"], "proj");
+    let tasks = v["tasks"].as_array().unwrap();
     assert_eq!(tasks.len(), 1);
     assert_eq!(tasks[0]["title"], "task-a");
     assert_eq!(tasks[0]["tags"][0], "k");
@@ -130,7 +130,7 @@ fn include_body_and_events_flags() {
     assert!(!md_default.contains("> corpo"));
     let json_default = run(base.path(), &cwd, &["export", "--format", "json"]);
     let v: serde_json::Value = serde_json::from_str(&json_default).unwrap();
-    assert!(v["data"]["tasks"][0]["body"].is_null());
+    assert!(v["tasks"][0]["body"].is_null());
 
     let md = run(
         base.path(),
@@ -153,5 +153,5 @@ fn include_body_and_events_flags() {
         &["export", "--format", "json", "--include-body"],
     );
     let v2: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert_eq!(v2["data"]["tasks"][0]["body"], "corpo");
+    assert_eq!(v2["tasks"][0]["body"], "corpo");
 }
