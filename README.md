@@ -39,4 +39,4 @@ The foundational choice of Rust as the implementation language is documented in 
 
 ## License
 
-TBD.
+[MIT](LICENSE) © 2026 Cleidson Oliveira.
