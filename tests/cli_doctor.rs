@@ -83,6 +83,32 @@ fn missing_path_raises_warning_fixable() {
 }
 
 #[test]
+fn registry_path_diverging_from_db_is_error() {
+    let (base, cwd) = setup();
+    // Reescreve registry.toml apontando para um path válido mas diferente do
+    // registrado em `projects.root_path`.
+    let other = tempfile::tempdir().unwrap();
+    let other_canon = std::fs::canonicalize(other.path()).unwrap();
+    let content = format!(
+        "[[projects]]\nid = 1\nname = \"d\"\nroot_path = {:?}\n",
+        other_canon
+    );
+    std::fs::write(base.path().join("registry.toml"), content).unwrap();
+
+    let assert = bin()
+        .current_dir(&cwd)
+        .env("LOCAL_BACKLOG_HOME", base.path())
+        .args(["doctor"])
+        .assert()
+        .failure();
+    let stderr = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
+    assert!(
+        stderr.contains("projects.root_path"),
+        "stderr inesperado: {stderr}"
+    );
+}
+
+#[test]
 fn orphan_project_without_registry_is_error() {
     let (base, _cwd) = setup();
     // Remove registry para simular divergência DB-registry.

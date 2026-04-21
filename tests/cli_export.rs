@@ -60,7 +60,13 @@ fn markdown_groups_by_status_in_config_order() {
         .assert()
         .success();
 
-    let md = run(base.path(), &cwd, &["export", "--format", "markdown"]);
+    // Default oculta `done`/`cancelled` — precisamos de --include-archived
+    // para que a seção `## done` apareça na ordem de config.
+    let md = run(
+        base.path(),
+        &cwd,
+        &["export", "--format", "markdown", "--include-archived"],
+    );
     // project header
     assert!(md.starts_with("# proj\n"), "header faltando: {md}");
     // status 'todo' vem antes de 'done' (ordem config)
@@ -71,6 +77,33 @@ fn markdown_groups_by_status_in_config_order() {
     assert!(md.contains("T-"));
     assert!(md.contains("[10]"));
     assert!(md.contains("#x"));
+}
+
+#[test]
+fn markdown_hides_done_by_default() {
+    let (base, cwd) = setup();
+    let a = add(base.path(), &cwd, &["feita"]);
+    let _b = add(base.path(), &cwd, &["aberta"]);
+    bin()
+        .current_dir(&cwd)
+        .env("LOCAL_BACKLOG_HOME", base.path())
+        .args(["done", &a.to_string()])
+        .assert()
+        .success();
+
+    let md_default = run(base.path(), &cwd, &["export", "--format", "markdown"]);
+    assert!(!md_default.contains("## done"), "done vazou: {md_default}");
+    assert!(!md_default.contains("feita"));
+    assert!(md_default.contains("aberta"));
+
+    // --status=done traz de volta mesmo sem --include-archived.
+    let md_explicit = run(
+        base.path(),
+        &cwd,
+        &["export", "--format", "markdown", "--status", "done"],
+    );
+    assert!(md_explicit.contains("## done"));
+    assert!(md_explicit.contains("feita"));
 }
 
 #[test]
@@ -118,6 +151,45 @@ fn json_export_is_byte_stable_across_runs() {
     let first = run(base.path(), &cwd, &["export", "--format", "json"]);
     let second = run(base.path(), &cwd, &["export", "--format", "json"]);
     assert_eq!(first, second);
+}
+
+#[test]
+fn until_date_only_covers_whole_day() {
+    let (base, cwd) = setup();
+    // Task criada hoje aparece quando `--until` recebe a data de hoje (sem
+    // hora), validando que a expansão para 23:59:59 cobre o dia inteiro.
+    let _ = add(base.path(), &cwd, &["hoje"]);
+    let today: String = chrono_now_date();
+
+    let md = run(
+        base.path(),
+        &cwd,
+        &["export", "--format", "markdown", "--until", &today],
+    );
+    assert!(
+        md.contains("hoje"),
+        "esperado task dentro do --until={today}, got: {md}"
+    );
+}
+
+// Data de hoje sem dependência de crate de datas — usa `SystemTime`.
+fn chrono_now_date() -> String {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+    // Converte epoch → YYYY-MM-DD UTC (algoritmo howard hinnant).
+    let z = secs.div_euclid(86_400) + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    format!("{y:04}-{m:02}-{d:02}")
 }
 
 #[test]

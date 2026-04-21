@@ -103,6 +103,41 @@ pub fn run(args: ExportArgs, app: &mut App, cwd: &Path) -> Result<(), BacklogErr
     Ok(())
 }
 
+/// Status terminais ocultados por default no export — só aparecem quando o
+/// usuário passa `--status` explicitamente ou `--include-archived`.
+const TERMINAL_STATUSES: &[&str] = &["done", "cancelled"];
+
+fn is_terminal_status(s: &str) -> bool {
+    TERMINAL_STATUSES.contains(&s)
+}
+
+/// Se `s` é `YYYY-MM-DD`, devolve `YYYY-MM-DD 00:00:00`; caso contrário devolve `s`.
+fn expand_date_lower(s: &str) -> String {
+    if looks_like_date(s) {
+        format!("{s} 00:00:00")
+    } else {
+        s.to_string()
+    }
+}
+
+/// Se `s` é `YYYY-MM-DD`, devolve `YYYY-MM-DD 23:59:59`; caso contrário devolve `s`.
+fn expand_date_upper(s: &str) -> String {
+    if looks_like_date(s) {
+        format!("{s} 23:59:59")
+    } else {
+        s.to_string()
+    }
+}
+
+fn looks_like_date(s: &str) -> bool {
+    s.len() == 10
+        && s.as_bytes()[4] == b'-'
+        && s.as_bytes()[7] == b'-'
+        && s.bytes()
+            .enumerate()
+            .all(|(i, b)| matches!(i, 4 | 7) || b.is_ascii_digit())
+}
+
 /// Bundle completo de uma task já com satélites carregados.
 struct ExportRow {
     task: Task,
@@ -131,9 +166,20 @@ fn collect_rows(
     };
     let tasks = task_repo::list(&app.conn, project_id, &filter)?;
 
+    // Normaliza filtros de data: data-only vira intervalo inclusivo do dia.
+    // `since="2026-04-01"` → compara contra `updated_at >= "2026-04-01 00:00:00"`;
+    // `until="2026-04-30"` → compara contra `updated_at <= "2026-04-30 23:59:59"`.
+    let since_norm = args.since.as_deref().map(expand_date_lower);
+    let until_norm = args.until.as_deref().map(expand_date_upper);
+
+    let hide_terminal = args.status.is_empty() && !args.include_archived;
+
     let mut out = Vec::new();
     for task in tasks {
         if !args.status.is_empty() && !args.status.iter().any(|s| s == &task.status) {
+            continue;
+        }
+        if hide_terminal && is_terminal_status(&task.status) {
             continue;
         }
         if !args.task_type.is_empty() {
@@ -152,12 +198,12 @@ fn collect_rows(
         if !args.tag.is_empty() && !args.tag.iter().any(|t| tag_names.iter().any(|n| n == t)) {
             continue;
         }
-        if let Some(since) = args.since.as_deref() {
+        if let Some(since) = since_norm.as_deref() {
             if task.updated_at.as_str() < since {
                 continue;
             }
         }
-        if let Some(until) = args.until.as_deref() {
+        if let Some(until) = until_norm.as_deref() {
             if task.updated_at.as_str() > until {
                 continue;
             }

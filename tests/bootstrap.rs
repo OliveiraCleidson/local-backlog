@@ -70,3 +70,45 @@ kinds = ["blocks"]
     );
     assert_eq!(app.config.id.display, "prefixed");
 }
+
+#[test]
+fn per_repo_config_overrides_global() {
+    let base = tempfile::tempdir().unwrap();
+    // Global define priority.default = 10.
+    std::fs::write(
+        base.path().join(CONFIG_FILE),
+        r#"
+[status]
+values = ["todo", "done"]
+default = "todo"
+
+[task_type]
+values = ["feature"]
+
+[priority]
+default = 10
+order = "asc"
+
+[id]
+display = "integer"
+
+[link]
+kinds = ["blocks"]
+"#,
+    )
+    .unwrap();
+
+    // Per-repo override: priority.default = 777.
+    let repo = tempfile::tempdir().unwrap();
+    std::fs::write(
+        repo.path().join(".local-backlog.toml"),
+        "[priority]\ndefault = 777\n",
+    )
+    .unwrap();
+
+    let app = App::bootstrap_in_with(base.path(), Some(&repo.path().join(".local-backlog.toml")))
+        .unwrap();
+    assert_eq!(app.config.priority.default, 777);
+    // Campos não sobrescritos permanecem vindos do global.
+    assert_eq!(app.config.id.display, "integer");
+}

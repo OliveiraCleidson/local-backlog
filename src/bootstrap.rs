@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use rusqlite::Connection;
 
-use crate::config::{ensure_base_dir, Config};
+use crate::config::{ensure_base_dir, find_per_repo_config, Config};
 use crate::db;
 use crate::error::BacklogError;
 use crate::registry::{Registry, REGISTRY_FILE};
@@ -31,14 +31,26 @@ pub struct App {
 }
 
 impl App {
-    /// Bootstrap usando `~/.local-backlog/` como base.
-    pub fn bootstrap() -> Result<Self, BacklogError> {
+    /// Bootstrap usando `~/.local-backlog/` como base. Procura
+    /// `.local-backlog.toml` subindo da `cwd` para alimentar a camada per-repo
+    /// da cascata de config.
+    pub fn bootstrap(cwd: &Path) -> Result<Self, BacklogError> {
         let base = ensure_base_dir()?;
-        Self::bootstrap_in(&base)
+        let per_repo = find_per_repo_config(cwd);
+        Self::bootstrap_in_with(&base, per_repo.as_deref())
     }
 
-    /// Bootstrap em `base_dir` arbitrário (usado em testes).
+    /// Bootstrap em `base_dir` arbitrário (usado em testes). Não aplica
+    /// camada per-repo.
     pub fn bootstrap_in(base_dir: &Path) -> Result<Self, BacklogError> {
+        Self::bootstrap_in_with(base_dir, None)
+    }
+
+    /// Bootstrap em `base_dir` com camada per-repo opcional.
+    pub fn bootstrap_in_with(
+        base_dir: &Path,
+        per_repo: Option<&Path>,
+    ) -> Result<Self, BacklogError> {
         std::fs::create_dir_all(base_dir).map_err(|source| BacklogError::Io {
             path: base_dir.to_path_buf(),
             source,
@@ -67,7 +79,7 @@ impl App {
             tracing::info!(path = %registry_path.display(), "registry.toml vazio criado");
         }
 
-        let config = Config::load(Some(&config_path), None)?;
+        let config = Config::load(Some(&config_path), per_repo)?;
         let (registry, registry_corrupt) = Registry::load_tolerant(&registry_path)?;
         if let Some(reason) = &registry_corrupt {
             tracing::warn!(

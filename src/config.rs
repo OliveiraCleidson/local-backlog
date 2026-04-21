@@ -110,6 +110,22 @@ impl Config {
     }
 }
 
+pub const PER_REPO_CONFIG_FILE: &str = ".local-backlog.toml";
+
+/// Sobe a árvore a partir de `cwd` procurando o primeiro `.local-backlog.toml`.
+/// Retorna `None` se nenhum for encontrado até a raiz do filesystem.
+pub fn find_per_repo_config(cwd: &Path) -> Option<PathBuf> {
+    let mut cur: Option<&Path> = Some(cwd);
+    while let Some(dir) = cur {
+        let candidate = dir.join(PER_REPO_CONFIG_FILE);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+        cur = dir.parent();
+    }
+    None
+}
+
 /// Resolve `~/.local-backlog/` ou a pasta indicada por
 /// `LOCAL_BACKLOG_HOME` (usado em testes e para rodar em sandbox).
 pub fn ensure_base_dir() -> Result<PathBuf, BacklogError> {

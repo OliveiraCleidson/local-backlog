@@ -123,15 +123,35 @@ fn check_registry(app: &App, report: &mut Report) -> Result<(), BacklogError> {
             });
             continue;
         }
-        let project = project_repo::get_by_id(&app.conn, entry.id)?;
-        if project.is_none() {
+        let project = match project_repo::get_by_id(&app.conn, entry.id)? {
+            Some(p) => p,
+            None => {
+                report.errors.push(format!(
+                    "registry: project_id={} não existe na tabela projects",
+                    entry.id
+                ));
+                report
+                    .fixable
+                    .push(FixableIssue::RegistryOrphanProject { id: entry.id });
+                continue;
+            }
+        };
+
+        // Divergência DB↔registry: root_path canonizado no registry precisa
+        // bater com `projects.root_path`. Se diverge, o registry resolveria o
+        // tenant para um projeto errado — erro não-auto-fixable (usa `relink`).
+        let registry_canon =
+            std::fs::canonicalize(&entry.root_path).unwrap_or_else(|_| entry.root_path.clone());
+        let db_canon = std::fs::canonicalize(&project.root_path)
+            .unwrap_or_else(|_| std::path::PathBuf::from(&project.root_path));
+        if registry_canon != db_canon {
             report.errors.push(format!(
-                "registry: project_id={} não existe na tabela projects",
-                entry.id
+                "registry: project {} aponta para '{}' mas projects.root_path é '{}' \
+                 (rode `backlog projects relink` para conciliar)",
+                entry.id,
+                registry_canon.display(),
+                db_canon.display(),
             ));
-            report
-                .fixable
-                .push(FixableIssue::RegistryOrphanProject { id: entry.id });
         }
     }
     Ok(())

@@ -41,7 +41,7 @@ fn main() -> Result<()> {
         path: std::path::PathBuf::from("."),
         source,
     })?;
-    let mut app = App::bootstrap()?;
+    let mut app = App::bootstrap(&cwd)?;
     cli::dispatch(cmd, &mut app, &cwd)?;
     Ok(())
 }
