@@ -39,7 +39,9 @@ pub struct MutateArgs {
 
 #[derive(Args, Debug)]
 pub struct ListArgs {
-    pub id: i64,
+    /// Se informado, lista só as tags dessa task. Sem ID, lista todas as tags
+    /// do tenant com contagem de uso.
+    pub id: Option<i64>,
     #[arg(long, default_value = "table")]
     pub format: String,
 }
@@ -100,22 +102,59 @@ fn list(args: ListArgs, app: &App, cwd: &Path) -> Result<(), BacklogError> {
         value: args.format.clone(),
         allowed: "table, json".to_string(),
     })?;
-    if !task_repo::exists(&app.conn, tenant.project_id, args.id)? {
-        return Err(BacklogError::TaskNotFound { id: args.id });
-    }
-    let tags = tag_repo::list_for_task(&app.conn, tenant.project_id, args.id)?;
 
+    if let Some(id) = args.id {
+        if !task_repo::exists(&app.conn, tenant.project_id, id)? {
+            return Err(BacklogError::TaskNotFound { id });
+        }
+        let tags = tag_repo::list_for_task(&app.conn, tenant.project_id, id)?;
+        let out = match fmt {
+            Format::Json => serde_json::to_string_pretty(&JsonEnvelope::new(&tags))
+                .unwrap_or_else(|_| "{}".to_string()),
+            Format::Table => {
+                if tags.is_empty() {
+                    "sem tags".to_string()
+                } else {
+                    tags.iter()
+                        .map(|t| format!("#{}", t.name))
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                }
+            }
+        };
+        stdout_data(out);
+        return Ok(());
+    }
+
+    let rows = tag_repo::list_all_with_counts(&app.conn, tenant.project_id)?;
     let out = match fmt {
-        Format::Json => serde_json::to_string_pretty(&JsonEnvelope::new(&tags))
-            .unwrap_or_else(|_| "{}".to_string()),
+        Format::Json => {
+            let data: Vec<serde_json::Value> = rows
+                .iter()
+                .map(|(t, c)| json!({ "name": t.name, "count": c }))
+                .collect();
+            serde_json::to_string_pretty(&JsonEnvelope::new(&data))
+                .unwrap_or_else(|_| "{}".to_string())
+        }
         Format::Table => {
-            if tags.is_empty() {
+            if rows.is_empty() {
                 "sem tags".to_string()
             } else {
-                tags.iter()
-                    .map(|t| format!("#{}", t.name))
-                    .collect::<Vec<_>>()
-                    .join(" ")
+                let mut w_name = "TAG".len();
+                for (t, _) in &rows {
+                    w_name = w_name.max(t.name.len() + 1);
+                }
+                let mut s = String::new();
+                s.push_str(&format!("{:<w_name$}  USES\n", "TAG", w_name = w_name));
+                for (t, c) in &rows {
+                    s.push_str(&format!(
+                        "{:<w_name$}  {}\n",
+                        format!("#{}", t.name),
+                        c,
+                        w_name = w_name,
+                    ));
+                }
+                s.trim_end_matches('\n').to_string()
             }
         }
     };
