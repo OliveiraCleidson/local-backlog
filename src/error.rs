@@ -91,7 +91,10 @@ pub enum BacklogError {
     ProjectNotFound { name: String },
 
     #[error("valor inválido para {field}: '{value}'. Aceitos: {allowed}")]
-    #[diagnostic(code(backlog::input::invalid_enum))]
+    #[diagnostic(
+        code(backlog::input::invalid_enum),
+        help("use um dos valores aceitos ou ajuste a whitelist em ~/.local-backlog/config.toml")
+    )]
     InvalidEnum {
         field: &'static str,
         value: String,
@@ -99,7 +102,10 @@ pub enum BacklogError {
     },
 
     #[error("entrada inválida: {0}")]
-    #[diagnostic(code(backlog::input::invalid))]
+    #[diagnostic(
+        code(backlog::input::invalid),
+        help("revise os argumentos do comando; `--help` lista flags aceitas")
+    )]
     InvalidInput(String),
 }
 
