@@ -1,6 +1,4 @@
-//! Carregamento de configuração em camadas (figment):
-//! defaults embutidos → `~/.local-backlog/config.toml` → `<repo>/.local-backlog.toml`
-//! → env (`BACKLOG_*`) → flags.
+//! Cascata: defaults → global → per-repo → env `BACKLOG_*` → flags.
 
 use std::path::{Path, PathBuf};
 
@@ -40,7 +38,7 @@ pub struct PriorityConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdConfig {
-    /// `integer` (default) ou `prefixed`. No MVP só `integer` é usado em leitura.
+    /// Valores aceitos: `integer`, `prefixed`.
     pub display: String,
 }
 
@@ -73,7 +71,6 @@ impl Default for Config {
 }
 
 impl Config {
-    /// Carrega a configuração aplicando a cascata de providers.
     pub fn load(global: Option<&Path>, per_repo: Option<&Path>) -> Result<Self, BacklogError> {
         let mut fig = Figment::from(Serialized::defaults(Config::default()));
         if let Some(g) = global {
@@ -87,7 +84,6 @@ impl Config {
     }
 }
 
-/// Retorna o diretório base `~/.local-backlog/` garantindo existência.
 pub fn ensure_base_dir() -> Result<PathBuf, BacklogError> {
     let home = dirs::home_dir().ok_or(BacklogError::HomeNotFound)?;
     let base = home.join(".local-backlog");

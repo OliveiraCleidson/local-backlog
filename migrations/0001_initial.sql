@@ -44,8 +44,7 @@ BEGIN
     ) THEN RAISE(ABORT, 'parent e child de projetos diferentes') END;
 END;
 
--- Tenant é identidade: tasks.project_id é imutável (ADR-0001). Reatribuir
--- um task a outro projeto é semanticamente delete + recreate.
+-- Tenant é identidade (ADR-0001): reatribuir é delete + recreate.
 CREATE TRIGGER tasks_project_id_immutable
 BEFORE UPDATE OF project_id ON tasks
 WHEN NEW.project_id <> OLD.project_id
@@ -60,8 +59,7 @@ CREATE TABLE tags (
     UNIQUE (project_id, name)
 );
 
--- Mesma razão de tasks_project_id_immutable: o tenant de uma tag é
--- imutável. Renomear é OK, mudar de projeto não (ADR-0001).
+-- Mesma razão de tasks_project_id_immutable (ADR-0001).
 CREATE TRIGGER tags_project_id_immutable
 BEFORE UPDATE OF project_id ON tags
 WHEN NEW.project_id <> OLD.project_id

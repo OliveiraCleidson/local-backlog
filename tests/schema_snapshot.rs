@@ -1,7 +1,3 @@
-//! Snapshot `insta` do schema resultante depois de aplicar todas as
-//! migrations. Qualquer mudança no schema precisa passar por `cargo insta
-//! review`.
-
 use local_backlog::db;
 
 #[test]

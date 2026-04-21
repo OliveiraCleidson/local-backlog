@@ -1,8 +1,5 @@
-//! Repositórios por tabela. Toda função de leitura/escrita de dados de
-//! projeto recebe `project_id` como primeiro parâmetro explícito — não
-//! existe variante "global" para dados de tasks (ver ADR-0001).
-//!
-//! Implementações reais entram na Fase 2.
+//! Toda função de dados recebe `project_id` como primeiro parâmetro
+//! explícito — não existe variante "global" (ADR-0001).
 
 pub mod project_repo {}
 pub mod task_repo {}

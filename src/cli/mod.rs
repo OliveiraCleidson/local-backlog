@@ -3,22 +3,22 @@ use miette::Result;
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
-    /// Registra o projeto atual (stub — Fase 2).
+    /// Registra o projeto atual.
     Init,
-    /// Adiciona uma task no tenant atual (stub — Fase 2).
+    /// Adiciona uma task no tenant atual.
     Add,
-    /// Lista tasks do tenant atual (stub — Fase 2).
+    /// Lista tasks do tenant atual.
     List,
-    /// Mostra uma task (stub — Fase 2).
+    /// Mostra uma task.
     Show,
-    /// Marca uma task como concluída (stub — Fase 2).
+    /// Marca uma task como concluída.
     Done,
-    /// Arquiva uma task (stub — Fase 2).
+    /// Arquiva uma task.
     Archive,
 }
 
 pub fn dispatch(_cmd: Command) -> Result<()> {
     use crate::output::stderr_msg;
-    stderr_msg("comando ainda não implementado (Fase 1: scaffold)");
+    stderr_msg("comando ainda não implementado");
     Ok(())
 }

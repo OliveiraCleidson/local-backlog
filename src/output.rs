@@ -1,16 +1,15 @@
 use std::fmt::Display;
 use std::io::{self, Write};
 
-/// Escreve dados em stdout (pipe-friendly). Use APENAS para saída que o
-/// usuário (ou outro processo) consome como resultado do comando.
+/// Use somente para dados consumíveis (pipe-friendly).
 pub fn stdout_data(value: impl Display) {
     let stdout = io::stdout();
     let mut handle = stdout.lock();
-    // Ignoramos EPIPE (comum em `backlog list | head`).
+    // Descarta EPIPE: `backlog list | head` fechando stdout cedo é esperado.
     let _ = writeln!(handle, "{value}");
 }
 
-/// Escreve mensagens em stderr (logs, progresso, prompts). NUNCA para dados.
+/// Use para logs, progresso e prompts. Nunca para dados.
 pub fn stderr_msg(value: impl Display) {
     let stderr = io::stderr();
     let mut handle = stderr.lock();

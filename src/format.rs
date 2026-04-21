@@ -1,5 +1,3 @@
-//! Renderers `table` e `json` para comandos de leitura (Fase 2+).
-//!
 //! JSON segue o envelope `{ "schema_version": N, "data": ... }` (ADR-0004).
 
 use serde::Serialize;

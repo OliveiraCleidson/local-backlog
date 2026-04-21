@@ -7,8 +7,8 @@ use rusqlite::Connection;
 
 use crate::error::BacklogError;
 
-/// Abre uma conexão SQLite no caminho dado, aplica todas as migrations e
-/// garante `PRAGMA foreign_keys = ON`.
+/// Abre a conexão no caminho dado, aplica todas as migrations e habilita
+/// `foreign_keys` + `WAL`.
 pub fn open(path: &Path) -> Result<Connection, BacklogError> {
     let mut conn = Connection::open(path)?;
     configure(&mut conn)?;
@@ -16,7 +16,6 @@ pub fn open(path: &Path) -> Result<Connection, BacklogError> {
     Ok(conn)
 }
 
-/// Abre uma conexão em memória com as migrations aplicadas. Usada por testes.
 pub fn open_in_memory() -> Result<Connection, BacklogError> {
     let mut conn = Connection::open_in_memory()?;
     configure(&mut conn)?;

@@ -90,7 +90,6 @@ fn task_tags_cross_project_insert_is_blocked() {
 fn task_tags_cross_project_update_is_blocked() {
     let conn = setup();
     let t1 = insert_task(&conn, 1, "t1");
-    let t2 = insert_task(&conn, 2, "t2");
     let tag1 = insert_tag(&conn, 1, "auth");
     let tag2 = insert_tag(&conn, 2, "auth");
     conn.execute(
@@ -98,7 +97,6 @@ fn task_tags_cross_project_update_is_blocked() {
         [t1, tag1],
     )
     .unwrap();
-    // Mover o tag_id para um tag de outro projeto é cross-project.
     let err = conn
         .execute(
             "UPDATE task_tags SET tag_id = ?1 WHERE task_id = ?2",
@@ -108,8 +106,6 @@ fn task_tags_cross_project_update_is_blocked() {
     assert!(err
         .to_string()
         .contains("tag e task de projetos diferentes"));
-    // Silencia unused warnings em caso de curto-circuito.
-    let _ = t2;
 }
 
 #[test]
@@ -130,9 +126,8 @@ fn task_links_cross_project_insert_is_blocked() {
 
 #[test]
 fn tasks_project_id_is_immutable() {
-    // Reproduz o cenário que motivou o trigger: parent com filho real
-    // apontando via parent_id. Antes do fix, mudar project_id do parent
-    // deixava a relação pai/filho cross-project silenciosamente.
+    // Child apontando via parent_id é o cenário que mascarava a quebra:
+    // mover o parent deixava parent/child cross-project silenciosamente.
     let conn = setup();
     let parent = insert_task(&conn, 1, "parent");
     conn.execute(
@@ -157,7 +152,6 @@ fn tags_project_id_is_immutable() {
         [task, tag],
     )
     .unwrap();
-    // Reatribuir a tag ao projeto 2 deixaria o vínculo cross-project.
     let err = conn
         .execute("UPDATE tags SET project_id = 2 WHERE id = ?1", [tag])
         .unwrap_err();

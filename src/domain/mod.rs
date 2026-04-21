@@ -1,5 +1,3 @@
-//! Structs de domínio — puros, sem SQL. Populados pelos repos em `db::repo`.
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
