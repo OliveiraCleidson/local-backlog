@@ -57,6 +57,7 @@ pub fn run(args: DoctorArgs, app: &mut App, _cwd: &Path) -> Result<(), BacklogEr
     check_registry(app, &mut report)?;
     check_projects_vs_registry(app, &mut report)?;
     check_orphans(&app.conn, &mut report)?;
+    check_cross_tenant(&app.conn, &mut report)?;
 
     print_report(&report);
 
@@ -127,6 +128,47 @@ fn check_projects_vs_registry(app: &App, report: &mut Report) -> Result<(), Back
                 "projects: project {} '{}' ativo mas ausente do registry",
                 project.id, project.name
             ));
+        }
+    }
+    Ok(())
+}
+
+fn check_cross_tenant(
+    conn: &rusqlite::Connection,
+    report: &mut Report,
+) -> Result<(), BacklogError> {
+    // Os triggers já bloqueiam essas linhas na inserção — este check é
+    // defense-in-depth contra DBs editados manualmente ou triggers dropados.
+    let checks: &[(&str, &str)] = &[
+        (
+            "tasks.parent_id cross-project",
+            "SELECT COUNT(*) FROM tasks c JOIN tasks p ON p.id = c.parent_id \
+             WHERE c.parent_id IS NOT NULL AND c.project_id <> p.project_id",
+        ),
+        (
+            "task_tags cross-project",
+            "SELECT COUNT(*) FROM task_tags tt \
+             JOIN tasks t ON t.id = tt.task_id \
+             JOIN tags g ON g.id = tt.tag_id \
+             WHERE t.project_id <> g.project_id",
+        ),
+        (
+            "task_links cross-project",
+            "SELECT COUNT(*) FROM task_links l \
+             JOIN tasks a ON a.id = l.from_id \
+             JOIN tasks b ON b.id = l.to_id \
+             WHERE a.project_id <> b.project_id",
+        ),
+    ];
+    for (label, sql) in checks {
+        let count: i64 = conn
+            .query_row(sql, [], |r| r.get(0))
+            .optional()?
+            .unwrap_or(0);
+        if count > 0 {
+            report
+                .errors
+                .push(format!("{label}: {count} linha(s) violando tenancy"));
         }
     }
     Ok(())
