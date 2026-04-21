@@ -100,9 +100,5 @@ pub fn list_for_task(
     let rows = stmt.query_map(params![task_id, project_id], |r| {
         Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
     })?;
-    let mut out = Vec::new();
-    for r in rows {
-        out.push(r?);
-    }
-    Ok(out)
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
 }

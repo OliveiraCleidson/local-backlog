@@ -98,8 +98,7 @@ pub fn run(args: ExportArgs, app: &mut App, cwd: &Path) -> Result<(), BacklogErr
         ),
         Format::Json => render_json(&project, &rows, args.include_body)?,
     };
-    let trimmed = out.strip_suffix('\n').unwrap_or(&out);
-    stdout_data(trimmed);
+    stdout_data(out);
     Ok(())
 }
 
@@ -248,11 +247,7 @@ fn links_out_for(
             kind: r.get(2)?,
         })
     })?;
-    let mut out = Vec::new();
-    for r in rows {
-        out.push(r?);
-    }
-    Ok(out)
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
 }
 
 fn links_in_for(
@@ -273,11 +268,7 @@ fn links_in_for(
             kind: r.get(2)?,
         })
     })?;
-    let mut out = Vec::new();
-    for r in rows {
-        out.push(r?);
-    }
-    Ok(out)
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
 }
 
 fn render_markdown(
@@ -291,7 +282,7 @@ fn render_markdown(
     let _ = writeln!(out);
 
     if rows.is_empty() {
-        let _ = writeln!(out, "_sem tasks_");
+        out.push_str("_sem tasks_");
         return out;
     }
 
@@ -319,6 +310,9 @@ fn render_markdown(
         for row in fallback {
             render_row_markdown(&mut out, row, include_body);
         }
+    }
+    if out.ends_with('\n') {
+        out.pop();
     }
     out
 }

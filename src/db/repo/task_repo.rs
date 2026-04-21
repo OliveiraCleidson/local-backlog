@@ -146,10 +146,7 @@ pub fn list(
 
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(params_from_iter(args.iter()), row_to_task)?;
-    let mut out = Vec::new();
-    for row in rows {
-        out.push(row?);
-    }
+    let out = rows.collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(out)
 }
 

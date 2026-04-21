@@ -1,4 +1,7 @@
-//! Renderers e envelope JSON (ADR-0004). `stdout_data` aplica newline final.
+//! Renderers e envelope JSON (ADR-0004).
+//!
+//! **Contrato de saída:** renderers nunca terminam com `\n`. `stdout_data`
+//! aplica o newline final. Call-sites não precisam de `strip_suffix`.
 
 use std::io::IsTerminal;
 
@@ -70,19 +73,25 @@ impl<'a> TaskRow<'a> {
     }
 }
 
+/// Serializa `data` dentro de `JsonEnvelope` em JSON pretty. Fallback `"{}"`
+/// garante que uma falha de serialização (que na prática não ocorre para os
+/// tipos usados) nunca quebre o contrato de stdout.
+pub fn render_json<T: Serialize>(data: T) -> String {
+    serde_json::to_string_pretty(&JsonEnvelope::new(data)).unwrap_or_else(|_| "{}".to_string())
+}
+
 pub fn render_tasks_json(tasks: &[(Task, Vec<Tag>)]) -> String {
     let rows: Vec<TaskRow> = tasks
         .iter()
         .map(|(t, tags)| TaskRow::from(t, tags))
         .collect();
-    let envelope = JsonEnvelope::new(rows);
-    serde_json::to_string_pretty(&envelope).unwrap_or_else(|_| "{}".to_string())
+    render_json(rows)
 }
 
 /// Tabela determinística. Cores desligadas quando `stdout` não é TTY.
 pub fn render_tasks_table(tasks: &[(Task, Vec<Tag>)]) -> String {
     if tasks.is_empty() {
-        return "nenhuma task encontrada\n".to_string();
+        return "nenhuma task encontrada".to_string();
     }
 
     let color = std::io::stdout().is_terminal();
@@ -158,6 +167,10 @@ pub fn render_tasks_table(tasks: &[(Task, Vec<Tag>)]) -> String {
             w_type = w_type,
             w_title = w_title,
         ));
+    }
+    // Contrato: renderers nunca terminam com `\n`.
+    if out.ends_with('\n') {
+        out.pop();
     }
     out
 }

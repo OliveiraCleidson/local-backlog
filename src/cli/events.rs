@@ -5,11 +5,11 @@ use std::path::Path;
 use clap::Args;
 
 use crate::bootstrap::App;
-use crate::cli::resolve_tenant;
+use crate::cli::{parse_format_arg, resolve_tenant};
 use crate::db::events;
 use crate::db::repo::task_repo;
 use crate::error::BacklogError;
-use crate::format::{Format, JsonEnvelope};
+use crate::format::{render_json, Format};
 use crate::output::stdout_data;
 
 const DEFAULT_LIMIT: u32 = 50;
@@ -32,11 +32,7 @@ pub struct EventsArgs {
 pub fn run(args: EventsArgs, app: &mut App, cwd: &Path) -> Result<(), BacklogError> {
     let tenant = resolve_tenant(app, cwd)?;
 
-    let fmt = Format::parse(&args.format).ok_or_else(|| BacklogError::InvalidEnum {
-        field: "format",
-        value: args.format.clone(),
-        allowed: "table, json".to_string(),
-    })?;
+    let fmt = parse_format_arg(&args.format)?;
 
     if !task_repo::exists(&app.conn, tenant.project_id, args.id)? {
         return Err(BacklogError::TaskNotFound { id: args.id });
@@ -48,8 +44,7 @@ pub fn run(args: EventsArgs, app: &mut App, cwd: &Path) -> Result<(), BacklogErr
     }
 
     let out = match fmt {
-        Format::Json => serde_json::to_string_pretty(&JsonEnvelope::new(&list))
-            .unwrap_or_else(|_| "{}".to_string()),
+        Format::Json => render_json(&list),
         Format::Table => {
             if list.is_empty() {
                 "sem eventos".to_string()

@@ -62,11 +62,7 @@ pub fn get_by_root_path(
 pub fn list_all(conn: &Connection) -> Result<Vec<Project>, BacklogError> {
     let mut stmt = conn.prepare(&format!("SELECT {COLS} FROM projects ORDER BY id ASC"))?;
     let rows = stmt.query_map([], row_to_project)?;
-    let mut out = Vec::new();
-    for row in rows {
-        out.push(row?);
-    }
-    Ok(out)
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
 }
 
 /// Conta tasks ativas (não arquivadas) de um projeto.

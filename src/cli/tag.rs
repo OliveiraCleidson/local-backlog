@@ -6,11 +6,11 @@ use clap::{Args, Subcommand};
 use serde_json::json;
 
 use crate::bootstrap::App;
-use crate::cli::resolve_tenant;
+use crate::cli::{parse_format_arg, resolve_tenant};
 use crate::db::events;
 use crate::db::repo::{tag_repo, task_repo};
 use crate::error::BacklogError;
-use crate::format::{Format, JsonEnvelope};
+use crate::format::{render_json, Format};
 use crate::output::{stderr_msg, stdout_data};
 
 #[derive(Args, Debug)]
@@ -97,11 +97,7 @@ fn remove(args: MutateArgs, app: &mut App, cwd: &Path) -> Result<(), BacklogErro
 
 fn list(args: ListArgs, app: &App, cwd: &Path) -> Result<(), BacklogError> {
     let tenant = resolve_tenant(app, cwd)?;
-    let fmt = Format::parse(&args.format).ok_or_else(|| BacklogError::InvalidEnum {
-        field: "format",
-        value: args.format.clone(),
-        allowed: "table, json".to_string(),
-    })?;
+    let fmt = parse_format_arg(&args.format)?;
 
     if let Some(id) = args.id {
         if !task_repo::exists(&app.conn, tenant.project_id, id)? {
@@ -109,8 +105,7 @@ fn list(args: ListArgs, app: &App, cwd: &Path) -> Result<(), BacklogError> {
         }
         let tags = tag_repo::list_for_task(&app.conn, tenant.project_id, id)?;
         let out = match fmt {
-            Format::Json => serde_json::to_string_pretty(&JsonEnvelope::new(&tags))
-                .unwrap_or_else(|_| "{}".to_string()),
+            Format::Json => render_json(&tags),
             Format::Table => {
                 if tags.is_empty() {
                     "sem tags".to_string()
@@ -133,8 +128,7 @@ fn list(args: ListArgs, app: &App, cwd: &Path) -> Result<(), BacklogError> {
                 .iter()
                 .map(|(t, c)| json!({ "name": t.name, "count": c }))
                 .collect();
-            serde_json::to_string_pretty(&JsonEnvelope::new(&data))
-                .unwrap_or_else(|_| "{}".to_string())
+            render_json(&data)
         }
         Format::Table => {
             if rows.is_empty() {

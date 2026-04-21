@@ -6,6 +6,7 @@ use clap::Subcommand;
 
 use crate::bootstrap::App;
 use crate::error::BacklogError;
+use crate::format::Format;
 use crate::resolver::{self, ResolvedTenant};
 
 pub mod add;
@@ -102,6 +103,16 @@ pub fn dispatch(cmd: Command, app: &mut App, cwd: &Path) -> Result<(), BacklogEr
 /// Resolve o tenant da CWD; usado por todos subcomandos de dados.
 pub(crate) fn resolve_tenant(app: &App, cwd: &Path) -> Result<ResolvedTenant, BacklogError> {
     resolver::resolve(cwd, &app.conn, &app.registry)
+}
+
+/// Converte string crua de `--format` em `Format`; produz `InvalidEnum` com
+/// whitelist canônica `table, json`.
+pub(crate) fn parse_format_arg(value: &str) -> Result<Format, BacklogError> {
+    Format::parse(value).ok_or_else(|| BacklogError::InvalidEnum {
+        field: "format",
+        value: value.to_string(),
+        allowed: "table, json".to_string(),
+    })
 }
 
 /// Valida que `value` pertence à lista `allowed`. Erro produz `InvalidEnum`

@@ -5,10 +5,11 @@ use std::path::{Path, PathBuf};
 use clap::{Args, Subcommand};
 
 use crate::bootstrap::App;
+use crate::cli::parse_format_arg;
 use crate::db::repo::project_repo;
 use crate::domain::Project;
 use crate::error::BacklogError;
-use crate::format::{Format, JsonEnvelope};
+use crate::format::{render_json, Format};
 use crate::output::{stderr_msg, stdout_data};
 use crate::registry::RegistryEntry;
 
@@ -70,14 +71,6 @@ pub fn run(args: ProjectsArgs, app: &mut App, _cwd: &Path) -> Result<(), Backlog
     }
 }
 
-fn parse_format(s: &str) -> Result<Format, BacklogError> {
-    Format::parse(s).ok_or_else(|| BacklogError::InvalidEnum {
-        field: "format",
-        value: s.to_string(),
-        allowed: "table, json".to_string(),
-    })
-}
-
 fn resolve(app: &App, target: &str) -> Result<Project, BacklogError> {
     if let Ok(id) = target.parse::<i64>() {
         if let Some(p) = project_repo::get_by_id(&app.conn, id)? {
@@ -90,7 +83,7 @@ fn resolve(app: &App, target: &str) -> Result<Project, BacklogError> {
 }
 
 fn list(args: ListArgs, app: &App) -> Result<(), BacklogError> {
-    let fmt = parse_format(&args.format)?;
+    let fmt = parse_format_arg(&args.format)?;
     let mut all = project_repo::list_all(&app.conn)?;
     if !args.include_archived {
         all.retain(|p| p.archived_at.is_none());
@@ -116,18 +109,16 @@ fn list(args: ListArgs, app: &App) -> Result<(), BacklogError> {
                     })
                 })
                 .collect();
-            serde_json::to_string_pretty(&JsonEnvelope::new(&data))
-                .unwrap_or_else(|_| "{}".to_string())
+            render_json(&data)
         }
         Format::Table => render_projects_table(&rows),
     };
-    let trimmed = out.strip_suffix('\n').unwrap_or(&out);
-    stdout_data(trimmed);
+    stdout_data(out);
     Ok(())
 }
 
 fn show(args: ShowArgs, app: &App) -> Result<(), BacklogError> {
-    let fmt = parse_format(&args.format)?;
+    let fmt = parse_format_arg(&args.format)?;
     let project = resolve(app, &args.target)?;
     let count = project_repo::count_active_tasks(&app.conn, project.id)?;
 
@@ -143,13 +134,11 @@ fn show(args: ShowArgs, app: &App) -> Result<(), BacklogError> {
                 "updated_at": project.updated_at,
                 "active_task_count": count,
             });
-            serde_json::to_string_pretty(&JsonEnvelope::new(&payload))
-                .unwrap_or_else(|_| "{}".to_string())
+            render_json(&payload)
         }
         Format::Table => render_project_detail(&project, count),
     };
-    let trimmed = out.strip_suffix('\n').unwrap_or(&out);
-    stdout_data(trimmed);
+    stdout_data(out);
     Ok(())
 }
 
@@ -221,7 +210,7 @@ fn archive(args: ArchiveArgs, app: &mut App) -> Result<(), BacklogError> {
 
 fn render_projects_table(rows: &[(Project, i64)]) -> String {
     if rows.is_empty() {
-        return "nenhum projeto registrado\n".to_string();
+        return "nenhum projeto registrado".to_string();
     }
     let mut w_id = "ID".len();
     let mut w_name = "NAME".len();
@@ -271,6 +260,9 @@ fn render_projects_table(rows: &[(Project, i64)]) -> String {
             w_tasks = w_tasks,
         ));
     }
+    if out.ends_with('\n') {
+        out.pop();
+    }
     out
 }
 
@@ -289,5 +281,8 @@ fn render_project_detail(p: &Project, active_task_count: i64) -> String {
     let _ = writeln!(s, "created_at:  {}", p.created_at);
     let _ = writeln!(s, "updated_at:  {}", p.updated_at);
     let _ = writeln!(s, "active_tasks: {active_task_count}");
+    if s.ends_with('\n') {
+        s.pop();
+    }
     s
 }

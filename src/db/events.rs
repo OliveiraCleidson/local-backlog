@@ -73,9 +73,5 @@ pub fn list_for_task(
             created_at: r.get("ts")?,
         })
     })?;
-    let mut out = Vec::new();
-    for row in rows {
-        out.push(row?);
-    }
-    Ok(out)
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
 }

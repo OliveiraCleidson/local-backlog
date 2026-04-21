@@ -5,6 +5,27 @@ use rusqlite::{params, Connection, OptionalExtension, Row};
 use crate::domain::Tag;
 use crate::error::BacklogError;
 
+/// Garante que `task_id` pertence ao `project_id` antes de qualquer operação
+/// em `task_tags`. Segue ADR-0001: cross-tenant é indistinguível de inexistente.
+fn ensure_task_in_tenant(
+    conn: &Connection,
+    project_id: i64,
+    task_id: i64,
+) -> Result<(), BacklogError> {
+    let owner: Option<i64> = conn
+        .query_row(
+            "SELECT project_id FROM tasks WHERE id = ?1",
+            params![task_id],
+            |r| r.get(0),
+        )
+        .optional()?;
+    if owner == Some(project_id) {
+        Ok(())
+    } else {
+        Err(BacklogError::TaskNotFound { id: task_id })
+    }
+}
+
 fn row_to_tag(row: &Row) -> rusqlite::Result<Tag> {
     Ok(Tag {
         id: row.get("id")?,
@@ -44,12 +65,17 @@ pub fn ensure(conn: &Connection, project_id: i64, name: &str) -> Result<Tag, Bac
 }
 
 /// Retorna `true` se a tag foi anexada agora; `false` se já estava anexada.
+///
+/// Valida que `task_id` pertence ao `project_id`; trigger
+/// `task_tags_same_project_insert` serve como rede de segurança caso a `tag_id`
+/// venha de outro tenant.
 pub fn attach(
     conn: &Connection,
-    _project_id: i64,
+    project_id: i64,
     task_id: i64,
     tag_id: i64,
 ) -> Result<bool, BacklogError> {
+    ensure_task_in_tenant(conn, project_id, task_id)?;
     let n = conn.execute(
         "INSERT OR IGNORE INTO task_tags (task_id, tag_id) VALUES (?1, ?2)",
         params![task_id, tag_id],
@@ -60,10 +86,11 @@ pub fn attach(
 /// Retorna `true` se a tag estava anexada e foi removida.
 pub fn detach(
     conn: &Connection,
-    _project_id: i64,
+    project_id: i64,
     task_id: i64,
     tag_id: i64,
 ) -> Result<bool, BacklogError> {
+    ensure_task_in_tenant(conn, project_id, task_id)?;
     let n = conn.execute(
         "DELETE FROM task_tags WHERE task_id = ?1 AND tag_id = ?2",
         params![task_id, tag_id],
@@ -83,11 +110,7 @@ pub fn list_for_task(
          ORDER BY g.name ASC",
     )?;
     let rows = stmt.query_map(params![task_id, project_id], row_to_tag)?;
-    let mut out = Vec::new();
-    for r in rows {
-        out.push(r?);
-    }
-    Ok(out)
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
 }
 
 pub fn list_all_with_counts(
@@ -102,9 +125,5 @@ pub fn list_all_with_counts(
     let rows = stmt.query_map(params![project_id], |row| {
         Ok((row_to_tag(row)?, row.get::<_, i64>("cnt")?))
     })?;
-    let mut out = Vec::new();
-    for r in rows {
-        out.push(r?);
-    }
-    Ok(out)
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
 }

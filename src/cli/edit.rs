@@ -99,77 +99,40 @@ pub fn run(args: EditArgs, app: &mut App, cwd: &Path) -> Result<(), BacklogError
 
     let updated = task_repo::update_fields(&app.conn, tenant.project_id, args.id, &patch)?;
 
-    // Emite `field_changed` para cada campo que mudou de fato.
+    // Emite `field_changed` quando o novo valor difere do atual. A macro encapsula
+    // comparação + json!+ emit para que cada campo fique em uma única linha.
+    macro_rules! emit_if_changed {
+        ($field:expr, $old:expr, $new:expr) => {
+            if $old != $new {
+                events::emit(
+                    &app.conn,
+                    args.id,
+                    "field_changed",
+                    &json!({ "field": $field, "from": $old, "to": $new }),
+                )?;
+            }
+        };
+    }
+
     if let Some(new_title) = &args.title {
-        if current.title != *new_title {
-            emit_change(&app.conn, args.id, "title", &current.title, new_title)?;
-        }
+        emit_if_changed!("title", &current.title, new_title);
     }
     if let Some(new_status) = &args.status {
-        if current.status != *new_status {
-            emit_change(&app.conn, args.id, "status", &current.status, new_status)?;
-        }
+        emit_if_changed!("status", &current.status, new_status);
     }
     if let Some(new_priority) = args.priority {
-        if current.priority != new_priority {
-            events::emit(
-                &app.conn,
-                args.id,
-                "field_changed",
-                &json!({
-                    "field": "priority",
-                    "from": current.priority,
-                    "to": new_priority,
-                }),
-            )?;
-        }
+        emit_if_changed!("priority", current.priority, new_priority);
     }
     if let Some(body) = body_patch {
-        if current.body != body {
-            events::emit(
-                &app.conn,
-                args.id,
-                "field_changed",
-                &json!({ "field": "body", "from": current.body, "to": body }),
-            )?;
-        }
+        emit_if_changed!("body", current.body, body);
     }
     if let Some(tt) = task_type_patch {
-        if current.task_type != tt {
-            events::emit(
-                &app.conn,
-                args.id,
-                "field_changed",
-                &json!({ "field": "type", "from": current.task_type, "to": tt }),
-            )?;
-        }
+        emit_if_changed!("type", current.task_type, tt);
     }
     if let Some(parent) = patch.parent_id {
-        if current.parent_id != parent {
-            events::emit(
-                &app.conn,
-                args.id,
-                "field_changed",
-                &json!({ "field": "parent_id", "from": current.parent_id, "to": parent }),
-            )?;
-        }
+        emit_if_changed!("parent_id", current.parent_id, parent);
     }
 
     stderr_msg(format!("task {} atualizada", updated.id));
     Ok(())
-}
-
-fn emit_change(
-    conn: &rusqlite::Connection,
-    task_id: i64,
-    field: &str,
-    from: &str,
-    to: &str,
-) -> Result<(), BacklogError> {
-    events::emit(
-        conn,
-        task_id,
-        "field_changed",
-        &json!({ "field": field, "from": from, "to": to }),
-    )
 }

@@ -7,12 +7,12 @@ use rusqlite::{params, Connection};
 use serde::Serialize;
 
 use crate::bootstrap::App;
-use crate::cli::resolve_tenant;
+use crate::cli::{parse_format_arg, resolve_tenant};
 use crate::db::events::{self, TaskEvent};
 use crate::db::repo::{tag_repo, task_repo};
 use crate::domain::{Tag, Task};
 use crate::error::BacklogError;
-use crate::format::{Format, JsonEnvelope};
+use crate::format::{render_json, Format};
 use crate::output::stdout_data;
 
 const EVENT_LIMIT: u32 = 10;
@@ -52,11 +52,7 @@ struct ShowData {
 pub fn run(args: ShowArgs, app: &mut App, cwd: &Path) -> Result<(), BacklogError> {
     let tenant = resolve_tenant(app, cwd)?;
 
-    let fmt = Format::parse(&args.format).ok_or_else(|| BacklogError::InvalidEnum {
-        field: "format",
-        value: args.format.clone(),
-        allowed: "table, json".to_string(),
-    })?;
+    let fmt = parse_format_arg(&args.format)?;
 
     // Tenant-leak policy: cross-tenant id devolve mesma mensagem de "não existe".
     let task = task_repo::get(&app.conn, tenant.project_id, args.id)?
@@ -76,12 +72,10 @@ pub fn run(args: ShowArgs, app: &mut App, cwd: &Path) -> Result<(), BacklogError
     };
 
     let out = match fmt {
-        Format::Json => serde_json::to_string_pretty(&JsonEnvelope::new(&data))
-            .unwrap_or_else(|_| "{}".to_string()),
+        Format::Json => render_json(&data),
         Format::Table => render_table(&data),
     };
-    let trimmed = out.strip_suffix('\n').unwrap_or(&out);
-    stdout_data(trimmed);
+    stdout_data(out);
     Ok(())
 }
 
@@ -102,32 +96,25 @@ fn list_attributes(
             value: r.get(1)?,
         })
     })?;
-    let mut out = Vec::new();
-    for r in rows {
-        out.push(r?);
-    }
-    Ok(out)
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
 }
 
 fn list_links(conn: &Connection, project_id: i64, task_id: i64) -> Result<Vec<Link>, BacklogError> {
-    let mut out = Vec::new();
-
     let mut stmt = conn.prepare(
         "SELECT l.kind, l.to_id FROM task_links l \
          JOIN tasks t ON t.id = l.from_id \
          WHERE l.from_id = ?1 AND t.project_id = ?2 \
          ORDER BY l.kind, l.to_id",
     )?;
-    let rows = stmt.query_map(params![task_id, project_id], |r| {
-        Ok(Link {
-            direction: "out",
-            kind: r.get(0)?,
-            other_id: r.get(1)?,
-        })
-    })?;
-    for r in rows {
-        out.push(r?);
-    }
+    let outgoing = stmt
+        .query_map(params![task_id, project_id], |r| {
+            Ok(Link {
+                direction: "out",
+                kind: r.get(0)?,
+                other_id: r.get(1)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
 
     let mut stmt = conn.prepare(
         "SELECT l.kind, l.from_id FROM task_links l \
@@ -135,16 +122,18 @@ fn list_links(conn: &Connection, project_id: i64, task_id: i64) -> Result<Vec<Li
          WHERE l.to_id = ?1 AND t.project_id = ?2 \
          ORDER BY l.kind, l.from_id",
     )?;
-    let rows = stmt.query_map(params![task_id, project_id], |r| {
-        Ok(Link {
-            direction: "in",
-            kind: r.get(0)?,
-            other_id: r.get(1)?,
-        })
-    })?;
-    for r in rows {
-        out.push(r?);
-    }
+    let incoming = stmt
+        .query_map(params![task_id, project_id], |r| {
+            Ok(Link {
+                direction: "in",
+                kind: r.get(0)?,
+                other_id: r.get(1)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
+    let mut out = outgoing;
+    out.extend(incoming);
     Ok(out)
 }
 
@@ -206,5 +195,8 @@ fn render_table(d: &ShowData) -> String {
         }
     }
 
+    if s.ends_with('\n') {
+        s.pop();
+    }
     s
 }

@@ -6,11 +6,11 @@ use clap::{Args, Subcommand};
 use serde_json::json;
 
 use crate::bootstrap::App;
-use crate::cli::resolve_tenant;
+use crate::cli::{parse_format_arg, resolve_tenant};
 use crate::db::events;
 use crate::db::repo::{attr_repo, task_repo};
 use crate::error::BacklogError;
-use crate::format::{Format, JsonEnvelope};
+use crate::format::{render_json, Format};
 use crate::output::{stderr_msg, stdout_data};
 
 #[derive(Args, Debug)]
@@ -99,11 +99,7 @@ fn unset(args: UnsetArgs, app: &App, cwd: &Path) -> Result<(), BacklogError> {
 
 fn list(args: ListArgs, app: &App, cwd: &Path) -> Result<(), BacklogError> {
     let tenant = resolve_tenant(app, cwd)?;
-    let fmt = Format::parse(&args.format).ok_or_else(|| BacklogError::InvalidEnum {
-        field: "format",
-        value: args.format.clone(),
-        allowed: "table, json".to_string(),
-    })?;
+    let fmt = parse_format_arg(&args.format)?;
     if !task_repo::exists(&app.conn, tenant.project_id, args.id)? {
         return Err(BacklogError::TaskNotFound { id: args.id });
     }
@@ -115,8 +111,7 @@ fn list(args: ListArgs, app: &App, cwd: &Path) -> Result<(), BacklogError> {
                 .iter()
                 .map(|(k, v)| json!({ "key": k, "value": v }))
                 .collect();
-            serde_json::to_string_pretty(&JsonEnvelope::new(&data))
-                .unwrap_or_else(|_| "{}".to_string())
+            render_json(&data)
         }
         Format::Table => {
             if attrs.is_empty() {

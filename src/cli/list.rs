@@ -5,7 +5,7 @@ use std::path::Path;
 use clap::Args;
 
 use crate::bootstrap::App;
-use crate::cli::{resolve_tenant, validate_enum};
+use crate::cli::{parse_format_arg, resolve_tenant, validate_enum};
 use crate::config::PriorityOrder;
 use crate::db::repo::{tag_repo, task_repo};
 use crate::error::BacklogError;
@@ -54,11 +54,7 @@ pub struct ListArgs {
 pub fn run(args: ListArgs, app: &mut App, cwd: &Path) -> Result<(), BacklogError> {
     let tenant = resolve_tenant(app, cwd)?;
 
-    let fmt = Format::parse(&args.format).ok_or_else(|| BacklogError::InvalidEnum {
-        field: "format",
-        value: args.format.clone(),
-        allowed: "table, json".to_string(),
-    })?;
+    let fmt = parse_format_arg(&args.format)?;
 
     if let Some(status) = &args.status {
         validate_enum("status", status, &app.config.status.values)?;
@@ -102,8 +98,6 @@ pub fn run(args: ListArgs, app: &mut App, cwd: &Path) -> Result<(), BacklogError
         Format::Table => render_tasks_table(&rows),
         Format::Json => render_tasks_json(&rows),
     };
-    // `stdout_data` adiciona newline; remove se o renderer já termina com `\n`.
-    let trimmed = out.strip_suffix('\n').unwrap_or(&out);
-    stdout_data(trimmed);
+    stdout_data(out);
     Ok(())
 }
