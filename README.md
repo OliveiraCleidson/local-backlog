@@ -33,6 +33,76 @@ Pre-execution. Architectural decisions are captured under [`docs/adr/`](docs/adr
 
 The foundational choice of Rust as the implementation language is documented in [ADR-0000](docs/adr/pt-BR/0000-rust-como-linguagem-de-aprendizado.md) (canonical in `pt-BR`; translations available in `en` and `es-AR`).
 
+## AI integration
+
+`backlog export` is the single seam for feeding project context to an LLM. It dumps the current tenant — and only the current tenant — in one of two shapes:
+
+```sh
+# Human- and LLM-friendly outline grouped by status
+backlog export --format markdown
+
+# Full structured dump for programmatic consumers
+backlog export --format json
+```
+
+Both formats support the same filters:
+
+- `--status todo,doing` — restrict to one or more statuses
+- `--tag infra,urgent` — restrict to tasks carrying any of the tags
+- `--type feature,bug` — restrict to task types
+- `--include-archived` — opt in to archived tasks (hidden by default)
+- `--include-body` — append each task's body text
+- `--include-events` — append each task's event timeline
+
+### Markdown shape
+
+Tasks are grouped under `## <status>` headers in the order declared in `config.toml::status.values`. Empty statuses are omitted. Each task renders as:
+
+```
+- T-42 [50] (feature) refactor auth middleware #security #debt
+  > Optional body, one line per original line.
+  - attrs: `jira=ABC-123` `estimate.h=4`
+  - links: blocks T-17, relates T-8
+  - backlinks: T-99 relates
+  - events:
+    - 2026-04-20 12:34:56 `created` {"title":"...","type":"feature","priority":50}
+```
+
+The `T-` prefix, `[priority]` bracket, and `#hashtag` convention are stable: write your LLM prompts against them.
+
+### JSON shape
+
+The JSON export is wrapped in the standard envelope (`schema_version` + `data`) described in [ADR-0004](docs/adr/pt-BR/0004-output-contract.md):
+
+```json
+{
+  "schema_version": 1,
+  "data": {
+    "project": { "id": 1, "name": "proj", "root_path": "...", "description": null, "archived_at": null },
+    "tasks": [
+      {
+        "id": 42,
+        "title": "refactor auth middleware",
+        "status": "doing",
+        "priority": 50,
+        "type": "feature",
+        "tags": ["security", "debt"],
+        "attributes": [{ "key": "jira", "value": "ABC-123" }],
+        "links_out": [{ "from_id": 42, "to_id": 17, "kind": "blocks" }],
+        "links_in":  [{ "from_id": 99, "to_id": 42, "kind": "relates" }],
+        "events": []
+      }
+    ]
+  }
+}
+```
+
+Ordering is deterministic (priority, then `updated_at`, then `id`), so two runs against an unchanged database produce byte-identical output — safe to diff or check into a snapshot.
+
+### Event schema
+
+Payload schemas per `kind` are documented in the appendix of [ADR-0002](docs/adr/pt-BR/0002-tasks-atomica-com-satelites.md). Consumers must tolerate unknown fields; new `kind`s are additive.
+
 ## Documentation
 
 - `docs/adr/` — Architecture Decision Records, canonical in `pt-BR` with `en` and `es-AR` translations. Start new ADRs from `TEMPLATE.md`.
