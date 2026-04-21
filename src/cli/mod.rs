@@ -11,6 +11,7 @@ use crate::resolver::{self, ResolvedTenant};
 pub mod add;
 pub mod init;
 pub mod list;
+pub mod show;
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
@@ -20,6 +21,8 @@ pub enum Command {
     Add(add::AddArgs),
     /// Lista tasks do tenant atual.
     List(list::ListArgs),
+    /// Mostra uma task agregada (tags, atributos, links, eventos).
+    Show(show::ShowArgs),
 }
 
 pub fn dispatch(cmd: Command, app: &mut App, cwd: &Path) -> Result<(), BacklogError> {
@@ -27,6 +30,7 @@ pub fn dispatch(cmd: Command, app: &mut App, cwd: &Path) -> Result<(), BacklogEr
         Command::Init(args) => init::run(args, app, cwd),
         Command::Add(args) => add::run(args, app, cwd),
         Command::List(args) => list::run(args, app, cwd),
+        Command::Show(args) => show::run(args, app, cwd),
     }
 }
 
