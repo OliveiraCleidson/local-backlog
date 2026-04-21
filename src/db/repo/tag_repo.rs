@@ -43,30 +43,32 @@ pub fn ensure(conn: &Connection, project_id: i64, name: &str) -> Result<Tag, Bac
     })
 }
 
+/// Retorna `true` se a tag foi anexada agora; `false` se já estava anexada.
 pub fn attach(
     conn: &Connection,
     _project_id: i64,
     task_id: i64,
     tag_id: i64,
-) -> Result<(), BacklogError> {
-    conn.execute(
+) -> Result<bool, BacklogError> {
+    let n = conn.execute(
         "INSERT OR IGNORE INTO task_tags (task_id, tag_id) VALUES (?1, ?2)",
         params![task_id, tag_id],
     )?;
-    Ok(())
+    Ok(n > 0)
 }
 
+/// Retorna `true` se a tag estava anexada e foi removida.
 pub fn detach(
     conn: &Connection,
     _project_id: i64,
     task_id: i64,
     tag_id: i64,
-) -> Result<(), BacklogError> {
-    conn.execute(
+) -> Result<bool, BacklogError> {
+    let n = conn.execute(
         "DELETE FROM task_tags WHERE task_id = ?1 AND tag_id = ?2",
         params![task_id, tag_id],
     )?;
-    Ok(())
+    Ok(n > 0)
 }
 
 pub fn list_for_task(

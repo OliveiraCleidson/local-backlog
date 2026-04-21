@@ -86,7 +86,7 @@ pub fn run(args: AddArgs, app: &mut App, cwd: &Path) -> Result<(), BacklogError>
             continue;
         }
         let tag = tag_repo::ensure(&app.conn, tenant.project_id, name)?;
-        tag_repo::attach(&app.conn, tenant.project_id, task.id, tag.id)?;
+        let _ = tag_repo::attach(&app.conn, tenant.project_id, task.id, tag.id)?;
     }
 
     events::emit(

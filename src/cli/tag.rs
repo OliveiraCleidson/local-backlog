@@ -63,8 +63,10 @@ fn add(args: MutateArgs, app: &mut App, cwd: &Path) -> Result<(), BacklogError> 
             continue;
         }
         let tag = tag_repo::ensure(&app.conn, tenant.project_id, name)?;
-        tag_repo::attach(&app.conn, tenant.project_id, args.id, tag.id)?;
-        events::emit(&app.conn, args.id, "tag_added", &json!({ "tag": name }))?;
+        let attached = tag_repo::attach(&app.conn, tenant.project_id, args.id, tag.id)?;
+        if attached {
+            events::emit(&app.conn, args.id, "tag_added", &json!({ "tag": name }))?;
+        }
     }
     stderr_msg(format!("tags anexadas em task {}", args.id));
     Ok(())
@@ -81,8 +83,10 @@ fn remove(args: MutateArgs, app: &mut App, cwd: &Path) -> Result<(), BacklogErro
             continue;
         }
         if let Some(tag) = tag_repo::get_by_name(&app.conn, tenant.project_id, name)? {
-            tag_repo::detach(&app.conn, tenant.project_id, args.id, tag.id)?;
-            events::emit(&app.conn, args.id, "tag_removed", &json!({ "tag": name }))?;
+            let detached = tag_repo::detach(&app.conn, tenant.project_id, args.id, tag.id)?;
+            if detached {
+                events::emit(&app.conn, args.id, "tag_removed", &json!({ "tag": name }))?;
+            }
         }
     }
     stderr_msg(format!("tags removidas de task {}", args.id));
