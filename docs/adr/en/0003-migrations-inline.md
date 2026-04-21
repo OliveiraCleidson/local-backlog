@@ -5,19 +5,19 @@
 
 ## Context
 
-The CLI is a single binary distributed via `cargo install`. Schema migrations must:
+The CLI is distributed as a single binary via `cargo install`. Schema migrations must meet several requirements:
 
-1. Run automatically on first use and during upgrades.
-2. Not depend on an external CLI (`diesel`, `sqlx`).
-3. Not require loose SQL files on the user's filesystem.
-4. Be testable against an in-memory database.
+1. They must run automatically upon first use and subsequent upgrades.
+2. They must not depend on an external CLI, such as `diesel` or `sqlx`.
+3. They must not require standalone SQL files on the user's filesystem.
+4. They must be testable using an in-memory database.
 
 Options:
 
 - `rusqlite_migration` inline (`const MIGRATIONS: &[M]`).
 - `rusqlite_migration` per directory (`from-directory` feature).
 - `refinery` with embedded SQL files via `include_str!`.
-- Manual script executing PRAGMAs.
+- A manual script executing PRAGMAs.
 
 ## Decision
 
@@ -32,31 +32,31 @@ const MIGRATIONS: &[M] = &[
 ];
 ```
 
-The `.sql` files live in `migrations/` in the repo as a **human reference** (review, diff, snapshot) but are embedded into the binary via `include_str!`. The runtime source of truth is the constant slice.
+Although the `.sql` files are stored in the `migrations/` directory as a reference for reviews, diffs, and snapshots, they are embedded into the binary using `include_str!`. The runtime source of truth is the constant slice.
 
-The schema state is controlled by SQLite's `PRAGMA user_version` — no auxiliary table.
+The schema's state is managed using SQLite's `PRAGMA user_version`, which eliminates the need for an auxiliary table.
 
-Migrations run automatically on every `backlog <any command>` via `Migrations::from_slice(...).to_latest(&mut conn)` during connection bootstrap.
+Migrations are automatically executed with every `backlog` command during connection bootstrap using `Migrations::from_slice(...).to_latest(&mut conn)`.
 
-An `insta` snapshot of the result of `SELECT type, name, sql FROM sqlite_master ORDER BY name` validates the final schema after applying all migrations.
+An `insta` snapshot of the results from `SELECT type, name, sql FROM sqlite_master ORDER BY name` is used to validate the final schema after all migrations have been applied.
 
 ## Consequences
 
 **Positive:**
-- Self-contained binary — the user never sees SQL files.
-- Zero external CLI; binary upgrades apply the new schema transparently.
-- Migration testing is trivial: `Connection::open_in_memory()` + `to_latest`.
-- `insta` snapshot turns "I changed a migration" into a reviewable schema diff.
+- The binary is self-contained, so users never see the SQL files.
+- No external CLI is required, as binary upgrades automatically and transparently apply the new schema.
+- Testing migrations is straightforward: use `Connection::open_in_memory()` along with the `to_latest` function.
+- Using an `insta` snapshot converts any changes to a migration into a reviewable schema diff.
 
 **Negative:**
-- Already published migrations cannot be modified — a new adjusting migration is required. Rule: **a migration is immutable after release.** Schema changes must always be additive or compensatory.
-- `include_str!` makes the .sql files become `&'static str` — very small at runtime, with negligible cost.
+- Once a migration has been published, it cannot be modified; any adjustments must be handled by a new migration. Rule: **Migrations are immutable after release.** Schema changes must always be additive or compensatory.
+- The use of `include_str!` converts `.sql` files into `&'static str` values, which are small and have a negligible impact on runtime performance.
 
 ## Alternatives Considered
 
-- **`from-directory`** — would require shipping files alongside the binary (breaks "single binary"); discarded.
-- **`refinery`** — similar in capability, but `rusqlite_migration` is lighter and uses the native `user_version`, avoiding an auxiliary table.
-- **Ad-hoc migrations via Rust code** — rejected: loses the declarative SQL contract that is easy to review in PRs.
+- **The `from-directory` option** (Rejected): This would require shipping files alongside the binary, which violates the single-binary requirement.
+- **The `refinery` tool** (Rejected): It offers similar capabilities, but `rusqlite_migration` was chosen because it is lighter and uses the native `user_version`, avoiding the need for an auxiliary table.
+- **Ad-hoc migrations using Rust code** (Rejected): This sacrifices the declarative SQL contract, which is easier to review in pull requests.
 
 ## Related
 

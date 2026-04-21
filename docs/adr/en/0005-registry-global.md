@@ -5,11 +5,11 @@
 
 ## Context
 
-Strict tenancy ([ADR-0001](0001-tenancy-estrita-por-projeto.md)) requires resolving "which project is this?" at every CLI invocation. Three strategies were considered:
+Strict tenancy ([ADR-0001](0001-tenancy-estrita-por-projeto.md)) necessitates identifying the current project with every CLI invocation. Three strategies were evaluated:
 
-1. **`.local-backlog` file in the repo** with a `project_id`. Versionable in git; clutters repositories; if not committed, it disappears.
-2. **Hash of the git repo path** (`git rev-parse --show-toplevel`). Zero configuration; a clone on another machine silently becomes a "different project"; does not work outside of git.
-3. **Global Registry** in `~/.local-backlog/registry.toml` mapping `absolute_path → project_id`. Zero clutter in the repo; requires `backlog relink` when moving folders; easy to list projects.
+1. **A `.local-backlog` file in the repository** containing a `project_id`: This can be version-controlled in Git, but it clutters the repository; if not committed, it will be lost.
+2. **A hash of the Git repository path** (`git rev-parse --show-toplevel`): While this requires zero configuration, a repository cloned to a different machine would silently be treated as a new project, and it would not work outside of Git.
+3. **A global registry** in `~/.local-backlog/registry.toml` that maps an `absolute_path` to a `project_id`: This approach avoids repository clutter, although it does require a `backlog relink` when folders are moved; it also makes listing projects straightforward.
 
 ## Decision
 
@@ -30,51 +30,51 @@ name = "hub"
 root_path = "/Users/cleidson/github/personal/hub"
 ```
 
-The registry is a canonical mirror of the SQLite `projects` table — the source of truth is the database; the TOML file exists for human inspection and as a fast lookup cache.
+The registry serves as a canonical mirror of the SQLite `projects` table; the database remains the source of truth, while the TOML file provides a fast lookup cache and a format for human inspection.
 
 ### Synchronization
 
-Project metadata changes are applied to SQLite first and then persisted to `registry.toml` by rewriting the file atomically:
+Changes to project metadata are first applied to SQLite and then persisted to `registry.toml` by atomically rewriting the file:
 
-- `backlog init` inserts the project in `projects` and writes the corresponding registry entry.
-- `backlog projects relink <id|name> --path <new>` updates `projects.root_path` and rewrites the registry.
-- `backlog projects archive <id|name>` updates `projects.archived_at` and rewrites the registry.
-- `backlog doctor` compares SQLite and `registry.toml`, reporting missing entries, stale paths, duplicate paths, and mismatched IDs.
+- `backlog init` adds a project to the `projects` table and creates the corresponding registry entry.
+- `backlog projects relink <id|name> --path <new>` updates the `projects.root_path` and regenerates the registry.
+- `backlog projects archive <id|name>` sets `projects.archived_at` and updates the registry.
+- The `backlog doctor` command compares the SQLite database with `registry.toml`, reporting any missing entries, stale or duplicate paths, and mismatched IDs.
 
 ### Resolution
 
 For every command:
 
-1. Canonicalize the CWD (resolve symlinks, normalize).
-2. Traverse up the directory tree looking for a match in `root_path`.
-3. If found → use the corresponding `project_id`.
-4. If not found → error via `miette` suggesting `backlog init` or `backlog projects relink`.
+1. Canonicalize the Current Working Directory (CWD) by resolving symlinks and normalizing the path.
+2. Search up the directory tree for a match within `root_path`.
+3. If a match is found, use the corresponding `project_id`.
+4. If no match is found, return an error via `miette` suggesting the use of `backlog init` or `backlog projects relink`.
 
 ### Meta Commands (The Only Cross-Tenant Namespace)
 
-- `backlog projects list` — shows all registered projects (id, name, path, task count).
-- `backlog projects show <id|name>` — metadata of a project.
-- `backlog projects relink <id|name> --path <new>` — updates `root_path` when the repo moves folders.
-- `backlog projects archive <id|name>` — marks a project as archived (does not appear in `list`); data is preserved.
+- `backlog projects list`: Displays all registered projects, including their IDs, names, paths, and task counts.
+- `backlog projects show <id|name>`: Provides metadata for a specific project.
+- `backlog projects relink <id|name> --path <new>`: Updates the `root_path` when a repository folder is moved.
+- `backlog projects archive <id|name>`: Marks a project as archived; it will no longer appear in the `list`, but its data will be preserved.
 
 ## Consequences
 
 **Positive:**
-- No `local-backlog` files inside the repos — does not clutter `git status`.
-- Works outside of git (projects without version control).
-- `backlog projects list` provides an instant global inventory.
-- Folder moves → a simple `relink` fixes it; no data loss.
+- No `local-backlog` files are stored within the repositories, ensuring that `git status` remains uncluttered.
+- The system works outside of Git for projects that do not use version control.
+- The `backlog projects list` command provides an immediate global inventory of all projects.
+- When folders are moved, a simple `relink` command addresses the issue without any data loss.
 
 **Negative:**
-- Losing `~/.local-backlog/` breaks the links (database + registry live together). Mitigation: the entire folder is trivial to back up; the user can version it in their dotfiles if they wish.
-- Two different checkouts of the same repo in different paths become distinct projects (this may be intended or an error). Mitigation: `backlog init` detects Git repos and asks if it's a new project or a duplicate; `doctor` flags paths with the same `origin` mapped to different IDs.
-- Portability between machines requires synchronizing `~/.local-backlog/` (or accepting independent states per machine). Accepted — the tool is single-machine by design.
+- Deleting or losing `~/.local-backlog/` will break the project links, as the database and registry are stored together. Mitigation: The entire directory is easy to back up, and users can choose to version-control it within their dotfiles.
+- Two different checkouts of the same repository in different paths will be treated as distinct projects, which may be intentional or an error. Mitigation: `backlog init` identifies Git repositories and asks whether it's a new project or a duplicate; the `doctor` command flags paths with the same `origin` that are mapped to different IDs.
+- Portability between machines requires synchronizing `~/.local-backlog/`, or otherwise accepting independent states on each machine. This is acceptable, as the tool is designed for use on a single machine.
 
 ## Alternatives Considered
 
-- **`.local-backlog` in the repo** — rejected: clutters the user's repositories, requires `.gitignore` discipline or a commit with a coupled ID.
-- **Hash of `git remote get-url origin`** — rejected: fails in repos without an origin, in forks, and in non-git repos.
-- **Directory name as key** — rejected: two repos named `api/` would collide.
+- **Placing a `.local-backlog` file in the repository** (Rejected): This clutters repositories and requires `.gitignore` management or a commit containing a coupled ID.
+- **Using a hash of the `git remote get-url origin`** (Rejected): This fails for repositories without an origin, in forks, and in non-Git repositories.
+- **Using the directory name as a key** (Rejected): This would cause collisions if two repositories were both named `api/`.
 
 ## Related
 

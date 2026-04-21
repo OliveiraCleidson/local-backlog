@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-Architectural decision records for `local-backlog`. Short format, focused on **context**, **decision**, and **consequences**.
+Architectural Decision Records (ADRs) for `local-backlog`. They follow a concise format, prioritizing **context**, **decisions**, and **consequences**.
 
 ## Index
 
@@ -17,5 +17,5 @@ Use [`TEMPLATE.md`](TEMPLATE.md) as the starting point for new ADRs.
 
 - Filename: `NNNN-slug-kebab-case.md`.
 - Status: `Proposed` → `Accepted` → `Superseded by ADR-NNNN` / `Deprecated`.
-- One decision per ADR. Related decisions reference each other, they do not merge.
-- An ADR is immutable after being `Accepted`. Changes generate a new ADR that supersedes the previous one.
+- Each ADR focuses on a single decision. Related decisions should reference one another rather than being merged.
+- Once accepted, an ADR is immutable. Subsequent changes will be documented in a new ADR that supersedes the previous one.

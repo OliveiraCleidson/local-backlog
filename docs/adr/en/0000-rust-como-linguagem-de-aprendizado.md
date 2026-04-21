@@ -6,40 +6,40 @@
 
 ## Context
 
-`local-backlog` is born with an explicit dual purpose:
+`local-backlog` was created with an explicit dual purpose:
 
-1. **A real tool:** a CLI the author will use across every personal repository to manage the backlog, port between machines via `cargo install`, and consume through AI agents.
-2. **A learning vehicle:** Rust is a long-term bet in the author's public trajectory (Staff/Distinguished Engineer anchor, 2–3 years), alongside Go/AWS/AI. A small, well-bounded scope in a known domain is the ideal environment to learn the language without external deadline pressure.
+1. **A real tool:** A CLI the author will use across every personal repository to manage the backlog, port between machines via `cargo install`, and consume through AI agents.
+2. **A learning vehicle:** Rust is a long-term bet in the author's professional trajectory (Staff/Distinguished Engineer anchor, 2–3 years), alongside Go, AWS, and AI. A small, well-bounded scope in a known domain provides the ideal environment to learn the language without external deadline pressure.
 
-The alternatives evaluated were Go (single binary, already familiar, iteration speed) and Python (fast prototype, weaker distribution). Go would ship faster; Python would offer the least friction. Neither contributes to the stated depth gap in Rust.
+The alternatives evaluated were Go (single binary, already familiar, fast iteration) and Python (rapid prototyping, but weaker distribution). While Go would allow for faster shipping and Python would offer the least friction, neither would help bridge the identified gap in Rust expertise.
 
 ## Decision
 
-Rust is the implementation language for `local-backlog`. The decision has three operational implications:
+Rust is the implementation language for `local-backlog`. This decision has three operational implications:
 
-1. **Pace favors understanding over delivery.** There is no external deadline. If a feature demands understanding lifetimes, generic traits, or detailed `async`, the time spent is part of the project's return — not a detour.
-2. **Crate choices may favor learning value** when two options are equivalent in capability. Examples: prefer `figment` over `config-rs` for exposing provider concepts; prefer the hybrid `thiserror`+`miette` over `anyhow` to teach the design of typed errors.
-3. **AI-generated or AI-assisted code goes through explanatory human review.** The goal is not just to work — the author must understand every non-trivial block. Code review (human or adversarial via Codex) must explain idioms when opaque, not merely approve.
+1. **The project's pace prioritizes understanding over delivery.** There is no external deadline. If a feature requires a deep dive into lifetimes, generic traits, or asynchronous programming, the time spent is considered a valuable part of the project's return rather than a detour.
+2. **Crate choices may favor learning value** when two options offer equivalent capabilities. For example: preferring `figment` over `config-rs` to explore provider concepts, or choosing the hybrid `thiserror` + `miette` over `anyhow` to learn how to design typed errors.
+3. **AI-generated or AI-assisted code must undergo an explanatory human review.** The goal is not merely to have functional code; the author must understand every non-trivial block. Code reviews (whether human or AI-assisted via Codex) must explain any opaque idioms rather than simply providing approval.
 
-This decision is foundational — every other ADR (0001–NNNN) assumes Rust as a given.
+This decision is foundational; every subsequent ADR (0001–NNNN) assumes Rust as the implementation language.
 
 ## Consequences
 
 **Positive:**
-- A small project becomes a controlled training ground: atomic `tasks` + satellites covers `rusqlite`, migrations, triggers, serde, typed error handling, CLI parsing — the core idioms of the ecosystem.
-- Return on effort compounds: useful personal tool + Rust depth + public portfolio piece aligned with the stated anchor.
-- Closed scope avoids the "learn Rust in critical production" anti-pattern.
+- This small project serves as a controlled training ground, covering core ecosystem idioms such as `rusqlite`, migrations, triggers, Serde, typed error handling, and CLI parsing.
+- The return on effort is multifaceted: it results in a useful personal tool, deeper Rust knowledge, and a public portfolio piece aligned with the author's declared career anchor.
+- A closed scope avoids the "learning Rust in critical production" anti-pattern.
 
 **Negative:**
-- Initial velocity lower than Go/Python. Mitigation: no deadline; the cost is accepted by design.
-- The learning curve may produce decisions a senior Rust engineer would revisit later. Mitigation: ADRs 0001–NNNN fix the architectural boundaries (tenancy, schema, output contract); within those boundaries, iteration and rewriting are welcome.
-- **Pedagogical over-engineering is acceptable** within the boundaries: implementing a custom trait for `Output` when an `enum` would suffice, if it teaches trait design. Not acceptable outside the boundaries: breaking tenancy or the output contract out of syntactic curiosity.
+- Initial development velocity may be lower than it would be with Go or Python. Mitigation: There is no strict deadline, and this slower pace is an intentional trade-off.
+- The learning curve may lead to architectural decisions that a senior Rust engineer might later reconsider. Mitigation: ADRs 0001–NNNN define the architectural boundaries (tenancy, schema, output contract); within those boundaries, iteration and rewriting are encouraged.
+- **Pedagogical over-engineering is acceptable** within these boundaries—for instance, implementing a custom trait for `Output` when an `enum` would suffice, provided it facilitates learning trait design. However, it is not acceptable to compromise tenancy or the output contract simply for the sake of syntactic experimentation.
 
 ## Alternatives Considered
 
-- **Go** — rejected: it would reuse existing knowledge without contributing to the stated strategic gap. It would ship the tool faster, but the opportunity cost is the learning that would not happen.
-- **Python** — rejected: fast prototype, but distribution (PyPI/pipx) is inferior to `cargo install` for the intended usage model; and zero strategic gain from a new language.
-- **TypeScript/Node** — rejected for the same reasons as Python, with the aggravating factor of a mandatory external runtime.
+- **Go** (Rejected): It would reuse existing knowledge without addressing the identified strategic gap. While it would allow for faster tool delivery, the opportunity cost would be the loss of potential learning.
+- **Python** (Rejected): Although it allows for rapid prototyping, its distribution model (PyPI/pipx) is inferior to `cargo install` for the intended use case, and it offers no strategic gain from learning a new language.
+- **TypeScript/Node** (Rejected): For the same reasons as Python, with the added drawback of requiring an external runtime.
 
 ## Related
 

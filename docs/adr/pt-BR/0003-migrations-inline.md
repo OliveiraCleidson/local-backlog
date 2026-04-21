@@ -7,8 +7,8 @@
 
 O CLI é um binário único distribuído via `cargo install`. As migrações de esquema devem:
 
-1. Rodar automaticamente no primeiro uso e durante atualizações.
-2. Não depender de uma CLI externa (`diesel`, `sqlx`).
+1. Ser executadas automaticamente no primeiro uso e durante atualizações.
+2. Não depender de ferramentas CLI externas (`diesel`, `sqlx`).
 3. Não exigir arquivos SQL soltos no sistema de arquivos do usuário.
 4. Ser testáveis contra um banco de dados em memória.
 
@@ -32,13 +32,13 @@ const MIGRATIONS: &[M] = &[
 ];
 ```
 
-Os arquivos `.sql` vivem em `migrations/` no repositório como uma **referência humana** (revisão, diff, snapshot), mas são embutidos no binário via `include_str!`. A fonte da verdade em tempo de execução é o slice constante.
+Os arquivos `.sql` vivem em `migrations/` no repositório como uma **referência legível por humanos** (revisão, diff, snapshot), mas são embutidos no binário via `include_str!`. A fonte da verdade em tempo de execução é o slice constante.
 
 O estado do esquema é controlado pelo `PRAGMA user_version` do SQLite — sem tabela auxiliar.
 
 As migrações rodam automaticamente em cada `backlog <qualquer comando>` via `Migrations::from_slice(...).to_latest(&mut conn)` durante o bootstrap da conexão.
 
-Um snapshot `insta` do resultado de `SELECT type, name, sql FROM sqlite_master ORDER BY name` valida o esquema final após a aplicação de todas as migrações.
+Um snapshot via `insta` do resultado de `SELECT type, name, sql FROM sqlite_master ORDER BY name` valida o esquema final após a aplicação de todas as migrações.
 
 ## Consequências
 
@@ -46,10 +46,10 @@ Um snapshot `insta` do resultado de `SELECT type, name, sql FROM sqlite_master O
 - Binário auto-contido — o usuário nunca vê arquivos SQL.
 - Zero CLI externa; atualizações do binário aplicam o novo esquema de forma transparente.
 - O teste de migração é trivial: `Connection::open_in_memory()` + `to_latest`.
-- O snapshot `insta` transforma "alterei uma migração" em um diff de esquema revisável.
+- O snapshot via `insta` transforma "alterei uma migração" em um diff de esquema revisável.
 
 **Negativas:**
-- Migrações já publicadas não podem ser modificadas — uma nova migração de ajuste é necessária. Regra: **uma migração é imutável após o lançamento.** As mudanças de esquema devem ser sempre aditivas ou compensatórias.
+- Migrações já publicadas não podem ser modificadas — uma nova migração de ajuste é necessária. Regra: **uma migração é imutável após o release.** As mudanças de esquema devem ser sempre aditivas ou compensatórias.
 - `include_str!` faz com que os arquivos .sql se tornem `&'static str` — muito pequeno em tempo de execução, com custo insignificante.
 
 ## Alternativas Consideradas

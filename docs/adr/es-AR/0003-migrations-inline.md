@@ -5,12 +5,12 @@
 
 ## Contexto
 
-La CLI es un binario único distribuido mediante `cargo install`. Las migraciones de esquema deben:
+La CLI es un binario único que se distribuye con `cargo install`. Las migraciones del esquema tienen que:
 
-1. Ejecutarse automáticamente en el primer uso y durante las actualizaciones.
-2. No depender de una CLI externa (`diesel`, `sqlx`).
-3. No requerir archivos SQL sueltos en el sistema de archivos del usuario.
-4. Ser testeables contra una base de datos en memoria.
+1. Correr solas la primera vez que se use la herramienta y en cada actualización.
+2. No depender de una CLI externa (como `diesel` o `sqlx`).
+3. No andar pidiendo archivos SQL sueltos por el sistema del usuario.
+4. Poder testearse fácil contra una base de datos en memoria.
 
 Opciones:
 
@@ -32,25 +32,25 @@ const MIGRATIONS: &[M] = &[
 ];
 ```
 
-Los archivos `.sql` viven en `migrations/` en el repositorio como una **referencia humana** (revisión, diff, snapshot) pero están embebidos en el binario mediante `include_str!`. La fuente de verdad en tiempo de ejecución es el slice constante.
+Los archivos `.sql` viven en `migrations/` dentro del repositorio para que sea fácil revisarlos (revisión, diff, snapshot), pero terminan metidos en el binario con `include_str!`. En tiempo de ejecución, la fuente de verdad es el slice constante.
 
-El estado del esquema se controla mediante el `PRAGMA user_version` de SQLite — sin tabla auxiliar.
+El estado del esquema se controla con el `PRAGMA user_version` de SQLite — sin tablas auxiliares.
 
-Las migraciones se ejecutan automáticamente en cada `backlog <cualquier comando>` mediante `Migrations::from_slice(...).to_latest(&mut conn)` durante el arranque de la conexión.
+Las migraciones corren solas con cada comando de `backlog` usando `Migrations::from_slice(...).to_latest(&mut conn)` apenas se abre la conexión.
 
-Un snapshot `insta` del resultado de `SELECT type, name, sql FROM sqlite_master ORDER BY name` valida el esquema final tras aplicar todas las migraciones.
+Un snapshot de `insta` del resultado de `SELECT type, name, sql FROM sqlite_master ORDER BY name` nos sirve para validar el esquema final después de aplicar todas las migraciones.
 
 ## Consecuencias
 
 **Positivas:**
 - Binario autocontenido — el usuario nunca ve archivos SQL.
-- Cero CLI externa; las actualizaciones del binario aplican el nuevo esquema de forma transparente.
-- La prueba de migración es trivial: `Connection::open_in_memory()` + `to_latest`.
-- El snapshot `insta` convierte "cambié una migración" en un diff de esquema revisable.
+- Cero CLI externa; el binario se encarga de aplicar el esquema nuevo de forma transparente.
+- Testear la migración es una pavada: `Connection::open_in_memory()` + `to_latest`.
+- El snapshot de `insta` hace que un cambio en una migración sea un diff de esquema fácil de revisar.
 
 **Negativas:**
-- Las migraciones ya publicadas no pueden modificarse — se requiere una nueva migración de ajuste. Regla: **una migración es inmutable después del lanzamiento.** Los cambios de esquema deben ser siempre aditivos o compensatorios.
-- `include_str!` hace que los archivos .sql se conviertan en `&'static str` — muy pequeño en tiempo de ejecución, con un costo insignificante.
+- Una vez que publicaste una migración, no la podés tocar — si hace falta un ajuste, tenés que meter una migración nueva. Regla: **una migración es inmutable después del release.** Los cambios en el esquema tienen que ser siempre para sumar o para arreglar algo de antes.
+- `include_str!` hace que los archivos .sql se conviertan en `&'static str` — esto es muy liviano en runtime, casi no gasta nada.
 
 ## Alternativas Consideradas
 

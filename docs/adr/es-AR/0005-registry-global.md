@@ -5,15 +5,15 @@
 
 ## Contexto
 
-La tenencia estricta ([ADR-0001](0001-tenancy-estrita-por-projeto.md)) requiere resolver "¿qué proyecto es este?" en cada invocación de la CLI. Se consideraron tres estrategias:
+La tenencia estricta ([ADR-0001](0001-tenancy-estrita-por-projeto.md)) exige resolver "¿qué proyecto es este?" cada vez que llames a la CLI. Se evaluaron tres estrategias:
 
-1. **Archivo `.local-backlog` en el repositorio** con un `project_id`. Versionable en git; ensucia los repositorios; si no se confirma (commit), desaparece.
-2. **Hash de la ruta del repositorio git** (`git rev-parse --show-toplevel`). Cero configuración; un clon en otra máquina se convierte silenciosamente en un "proyecto diferente"; no funciona fuera de git.
-3. **Registro Global** en `~/.local-backlog/registry.toml` mapeando `ruta_absoluta → project_id`. Cero desorden en el repositorio; requiere `backlog relink` al mover carpetas; fácil de listar proyectos.
+1. **Archivo `.local-backlog` en el repositorio** con un `project_id`. Lo podés versionar en git, pero te ensucia los repositorios y si te olvidás de commitearlo, desaparece.
+2. **Hash de la ruta del repositorio git** (`git rev-parse --show-toplevel`). Cero configuración, pero un clon en otra máquina se convierte silenciosamente en un "proyecto diferente"; además, no anda fuera de git.
+3. **Registro Global** en `~/.local-backlog/registry.toml` que mapea `ruta_absoluta → project_id`. Cero desorden en el repositorio; requiere un `backlog relink` si movés las carpetas, pero es fácil de listar los proyectos.
 
 ## Decisión
 
-Usar la opción 3: un único registro global.
+Usar la opción 3: un solo registro global.
 
 ### Estructura
 
@@ -30,7 +30,7 @@ name = "hub"
 root_path = "/Users/cleidson/github/personal/hub"
 ```
 
-El registro es un espejo canónico de la tabla `projects` de SQLite — la fuente de verdad es la base de datos; el archivo TOML existe para la inspección humana y como un caché de búsqueda rápida.
+El registro es un reflejo de la tabla `projects` de SQLite — la posta está en la base de datos; el archivo TOML queda para que lo podamos ver nosotros y como un caché de búsqueda rápida.
 
 ### Sincronización
 
@@ -45,30 +45,30 @@ Los cambios en los metadatos del proyecto se aplican primero a SQLite y luego se
 
 Para cada comando:
 
-1. Canonizar el CWD (resolver enlaces simbólicos, normalizar).
-2. Subir por el árbol de directorios buscando una coincidencia en `root_path`.
-3. Si se encuentra → usar el `project_id` correspondiente.
-4. Si no se encuentra → error mediante `miette` sugiriendo `backlog init` o `backlog projects relink`.
+1. Canonizar el CWD (resolver symlinks, normalizar).
+2. Subir por el árbol de carpetas buscando un `root_path` que coincida.
+3. Si lo encuentra → usa el `project_id` que corresponde.
+4. Si no lo encuentra → tira un error con `miette` y te sugiere hacer `backlog init` o `backlog projects relink`.
 
 ### Comandos Meta (El Único Espacio de Nombres Cross-Tenant)
 
-- `backlog projects list` — muestra todos los proyectos registrados (id, nombre, ruta, conteo de tareas).
+- `backlog projects list` — muestra todos los proyectos registrados (id, nombre, ruta, cantidad de tareas).
 - `backlog projects show <id|name>` — metadatos de un proyecto.
 - `backlog projects relink <id|name> --path <nuevo>` — actualiza el `root_path` cuando el repositorio cambia de carpeta.
-- `backlog projects archive <id|name>` — marca un proyecto como archivado (no aparece en la `list`); los datos se preservan.
+- `backlog projects archive <id|name>` — marca un proyecto como archivado (para que no aparezca en la `list`); los datos no se borran.
 
 ## Consecuencias
 
 **Positivas:**
-- Sin archivos `local-backlog` dentro de los repositorios — no ensucia el `git status`.
-- Funciona fuera de git (proyectos sin control de versiones).
-- `backlog projects list` proporciona un inventario global instantáneo.
-- Cambios de carpeta → un simple `relink` lo soluciona; sin pérdida de datos.
+- No tenés archivos de `local-backlog` dentro de los repos — no te ensucia el `git status`.
+- Funciona fuera de git (proyectos que no tengan control de versiones).
+- `backlog projects list` te da un inventario global al toque.
+- Si movés una carpeta, con un simple `relink` lo solucionás sin perder datos.
 
 **Negativas:**
-- Perder `~/.local-backlog/` rompe los enlaces (la base de datos + el registro viven juntos). Mitigación: la carpeta entera es trivial de respaldar; el usuario puede versionarla en sus dotfiles si lo desea.
-- Dos checkouts diferentes del mismo repositorio en rutas diferentes se convierten en proyectos distintos (esto puede ser intencionado o un error). Mitigación: `backlog init` detecta repositorios Git y pregunta si es un nuevo proyecto o un duplicado; `doctor` marca rutas con el mismo `origin` mapeadas a diferentes IDs.
-- La portabilidad entre máquinas requiere sincronizar `~/.local-backlog/` (o aceptar estados independientes por máquina). Aceptado — la herramienta es single-machine por diseño.
+- Si perdés `~/.local-backlog/`, se te rompen los links (la base de datos y el registro van de la mano). Mitigación: la carpeta es una pavada de backupear y la podés versionar en tus dotfiles si querés.
+- Si tenés dos checkouts diferentes del mismo repo en rutas distintas, se ven como proyectos distintos (esto puede ser lo que querés o un error). Mitigación: `backlog init` detecta si es un repo Git y te pregunta si es un proyecto nuevo o un duplicado; `doctor` te marca las rutas con el mismo `origin` mapeadas a diferentes IDs.
+- La portabilidad entre máquinas exige sincronizar `~/.local-backlog/` (o aceptar que los estados son independientes por máquina). Aceptado — la herramienta está pensada para una sola máquina por diseño.
 
 ## Alternativas Consideradas
 

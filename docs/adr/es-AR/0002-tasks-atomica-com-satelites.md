@@ -5,7 +5,7 @@
 
 ## Contexto
 
-Los backlogs personales crecen para cualquier lado: estimaciones, área/servicio, esfuerzo, anclas de plan, links de PR, referencias externas. Si modelás todo como columnas en `tasks`, vas a tener que meter una migración por cada idea nueva. Por otro lado, modelar todo como EAV (Entidad-Atributo-Valor) de entrada te hace perder performance en las consultas comunes y te complica los filtros.
+Los backlogs personales crecen en complejidad imprevista: estimaciones, área/servicio, esfuerzo, anclas de plan, links de PR, referencias externas. Si modelás todo como columnas en `tasks`, vas a tener que meter una migración por cada idea nueva. Por otro lado, modelar todo como EAV (Entidad-Atributo-Valor) de entrada te hace perder performance en las consultas comunes y te complica los filtros.
 
 Lo que el usuario pide explícitamente es una arquitectura evolutiva: **arrancar simple y permitir extensiones sin tener que andar tocando todo**.
 

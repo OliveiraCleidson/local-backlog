@@ -1,6 +1,6 @@
-# Architecture Decision Records (Registros de Decisão Arquitetural)
+# Architecture Decision Records (Registros de Decisões Arquiteturais)
 
-Registros de decisões arquiteturais do `local-backlog`. Formato curto, focado em **contexto**, **decisão** e **consequências**.
+Registros de decisões arquiteturais do `local-backlog`. Formato sucinto, focado em **contexto**, **decisão** e **consequências**.
 
 ## Índice
 
@@ -9,7 +9,7 @@ Registros de decisões arquiteturais do `local-backlog`. Formato curto, focado e
 - [ADR-0002 — Tabela `tasks` atômica com satélites extensíveis](0002-tasks-atomica-com-satelites.md)
 - [ADR-0003 — Migrações Inline via `rusqlite_migration`](0003-migrations-inline.md)
 - [ADR-0004 — Contrato de stdout/stderr e `--format` Universal](0004-output-contract.md)
-- [ADR-0005 — Identificação de Projeto via Registro Global](0005-registry-global.md)
+- [ADR-0005 — Identificação de Projetos via Registro Global](0005-registry-global.md)
 
 Use [`TEMPLATE.md`](TEMPLATE.md) como base para novos ADRs.
 

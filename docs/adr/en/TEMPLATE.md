@@ -6,13 +6,13 @@
 
 ## Context
 
-What problem are we solving? Which forces are at play (technical requirements, business constraints, prior decisions, operational reality)? Describe the background well enough that someone joining the project a year from now can reconstruct the reasoning without needing you in the room.
+What problem is being solved? What factors are at play (e.g., technical requirements, business constraints, previous decisions, and operational reality)? Provide sufficient background so that someone joining the project in the future can understand the reasoning without further explanation.
 
-List the options considered at a high level — just enough to show a choice was made.
+Briefly list the options that were considered to demonstrate that a choice was made.
 
 ## Decision
 
-What is the decision, in a direct sentence. Then describe what it implies in concrete terms: data structures, contracts, operational rules, boundaries. Avoid prose — prefer bullets, tables, and short SQL or code snippets where they make things unambiguous.
+State the decision clearly in a single sentence. Then, describe its concrete implications, such as data structures, contracts, operational rules, and boundaries. Use bullet points, tables, and short SQL or code snippets to ensure clarity and avoid ambiguity.
 
 ## Consequences
 
@@ -26,9 +26,9 @@ What is the decision, in a direct sentence. Then describe what it implies in con
 
 ## Alternatives Considered
 
-- **Alternative A** — why it was rejected.
-- **Alternative B** — why it was rejected.
+- **Alternative A:** Why it was rejected.
+- **Alternative B:** Why it was rejected.
 
 ## Related
 
-- [ADR-NNNN — Title](NNNN-slug.md) — relationship (depends on, extends, complements, prerequisite for, etc.).
+- [ADR-NNNN — Title](NNNN-slug.md): Relationship (e.g., depends on, extends, complements, prerequisite for).

@@ -9,19 +9,19 @@
 O `local-backlog` mantém um único banco de dados SQLite em `~/.local-backlog/backlog.db` agregando N projetos do usuário. Duas abordagens eram possíveis:
 
 1. **Banco compartilhado com filtros opcionais** — os comandos por padrão mostram o projeto atual, mas flags como `--all-projects` permitem uma visão agregada.
-2. **Tenancy estrita** — o projeto inferido a partir do CWD (Diretório de Trabalho Atual) é o único escopo visível em cada operação de dados. Não existe superfície que agregue tarefas/tags/links entre projetos.
+2. **Tenancy estrita** — o projeto inferido a partir do diretório de trabalho (CWD) é o único escopo visível em cada operação de dados. Não há funcionalidade que agregue tarefas/tags/links entre projetos.
 
-A Opção 1 parece pragmática, mas introduz classes de bugs persistentes: `backlog list` em um repositório mostrando tarefas de outro, tags colidindo entre projetos, links acidentais entre tarefas não relacionadas e a IA recebendo contexto vazado durante a exportação.
+A Opção 1 parece pragmática, mas introduz categorias de bugs persistentes: `backlog list` em um repositório mostrando tarefas de outro, tags colidindo entre projetos, links acidentais entre tarefas não relacionadas e a IA recebendo contexto exposto durante a exportação.
 
 ## Decisão
 
 Adotar tenancy estrita baseada em projeto:
 
-- Cada query para tarefa, tag, atributo, link e evento inclui `project_id = :current` inferido via CWD → registro.
+- Cada query para tarefa, tag, atributo, link e evento inclui `project_id = :current` inferido via registro do CWD.
 - `tags.(project_id, name)` é único; `#auth` em dois projetos diferentes não colide nem compartilha um registro.
 - Relacionamentos pai/filho, tarefa/tag e links tarefa/tarefa devem permanecer dentro do mesmo `project_id` — reforçado por triggers SQL tanto na inserção quanto na atualização.
 - **Não existe flag `--all-projects`** em comandos de dados (`list`, `show`, `export`, etc.).
-- A única superfície cross-tenant é o namespace meta `backlog projects ...` (list, show, archive, relink). Este namespace nunca expõe conteúdo de tarefa/tag — apenas metadados do registro.
+- A única interface cross-tenant é o namespace meta `backlog projects ...` (list, show, archive, relink). Este namespace nunca expõe conteúdo de tarefa/tag — apenas metadados do registro.
 - `backlog doctor` verifica inconsistências (tarefas órfãs, pais/tags/links cross-project) como parte do health check.
 
 ## Consequências

@@ -5,10 +5,10 @@
 
 ## Contexto
 
-Um CLI usado em pipelines deve ter uma disciplina rigorosa de E/S (I/O). Dois tipos de bugs são extremamente difíceis de reverter uma vez que os usuários (ou scripts) começam a depender do comportamento:
+Um CLI usado em pipelines deve ter uma disciplina rigorosa de I/O (Entrada/Saída). Dois tipos de bugs são extremamente difíceis de reverter uma vez que os usuários (ou scripts) começam a depender do comportamento:
 
-1. **Canais Misturados** — imprimir logs/progresso no `stdout` quebra o `backlog list | grep X`.
-2. **Formato Único** — a saída humana (tabelas coloridas) não pode ser analisada por outras ferramentas; os scripts começam a usar regex em códigos ANSI, e qualquer mudança estética quebra os consumidores.
+1. **Mixagem de Canais** — imprimir logs/progresso no `stdout` quebra o `backlog list | grep X`.
+2. **Formato Único** — a saída legível por humanos (tabelas coloridas) não pode ser analisada por outras ferramentas; os scripts começam a usar regex em códigos ANSI, e qualquer mudança estética quebra os consumidores.
 
 Requisito explícito do projeto: consumir a saída via agentes de IA sem precisar refatorar a arquitetura depois. Isso exige um JSON estável desde o primeiro dia.
 
@@ -20,7 +20,7 @@ Requisito explícito do projeto: consumir a saída via agentes de IA sem precisa
 - **`stderr`**: tudo o que não for dado — logs (`tracing`), progresso, prompts interativos (`inquire`) e mensagens de erro (`miette`).
 - Implementado através do módulo `src/output.rs`, expondo os auxiliares `stdout_data()` / `stderr_msg()`. Nenhum `println!` direto em subcomandos — verificações de linting/revisão bloqueiam isso.
 - `tracing-subscriber` configurado para escrever no `stderr`.
-- `is-terminal` detecta se o `stdout` é um TTY; se não for, ele desabilita automaticamente as cores ANSI.
+- `is-terminal` detecta se o `stdout` é um terminal; se não for, ele desabilita automaticamente as cores ANSI.
 
 ### `--format` Universal
 
@@ -55,7 +55,7 @@ O esquema JSON segue as convenções `snake_case` e inclui `schema_version` no e
 ## Alternativas Consideradas
 
 - **Apenas `--json` como uma flag booleana** — rejeitada: impede a adição de `tsv`/`markdown` sem uma nova flag; `--format=X` é extensível.
-- **JSON como padrão, tabela como flag** — rejeitada: a UX interativa sofre; os usuários humanos são os principais consumidores no uso diário.
+- **JSON como padrão, tabela como flag** — rejeitada: a UX interativa sofre; os usuários (humanos) são os principais consumidores no uso diário.
 - **Sem separação de stderr/stdout (uso casual)** — rejeitada: o custo de corrigir isso mais tarde é extremamente alto.
 
 ## Relacionados

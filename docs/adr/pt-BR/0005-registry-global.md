@@ -1,4 +1,4 @@
-# ADR-0005 — Identificação de Projeto via Registro Global
+# ADR-0005 — Identificação de Projetos via Registro Global
 
 - **Status:** Aceito
 - **Data:** 2026-04-20
@@ -9,7 +9,7 @@ A tenancy estrita ([ADR-0001](0001-tenancy-estrita-por-projeto.md)) exige resolv
 
 1. **Arquivo `.local-backlog` no repositório** com um `project_id`. Versionável no git; polui os repositórios; se não for commitado, desaparece.
 2. **Hash do caminho do repositório git** (`git rev-parse --show-toplevel`). Zero configuração; um clone em outra máquina torna-se silenciosamente um "projeto diferente"; não funciona fora do git.
-3. **Registro Global** em `~/.local-backlog/registry.toml` mapeando `caminho_absoluto → project_id`. Zero poluição no repositório; exige o `backlog relink` ao mover pastas; fácil de listar projetos.
+3. **Registro Global** em `~/.local-backlog/registry.toml` mapeando `caminho_absoluto → id_do_projeto`. Zero poluição no repositório; exige o `backlog relink` ao mover pastas; fácil de listar projetos.
 
 ## Decisão
 
@@ -50,7 +50,7 @@ Para cada comando:
 3. Se encontrado → usar o `project_id` correspondente.
 4. Se não encontrado → erro via `miette` sugerindo `backlog init` ou `backlog projects relink`.
 
-### Comandos Meta (O Único Namespace Cross-Tenant)
+### Comandos de Metadados (O Único Namespace Cross-Tenant)
 
 - `backlog projects list` — mostra todos os projetos registrados (id, nome, caminho, contagem de tarefas).
 - `backlog projects show <id|name>` — metadados de um projeto.
@@ -68,7 +68,7 @@ Para cada comando:
 **Negativas:**
 - Perder `~/.local-backlog/` quebra os vínculos (banco de dados + registro vivem juntos). Mitigação: a pasta inteira é trivial de fazer backup; o usuário pode versioná-la em seus dotfiles se desejar.
 - Dois checkouts diferentes do mesmo repositório em caminhos diferentes tornam-se projetos distintos (isso pode ser intencional ou um erro). Mitigação: `backlog init` detecta repositórios Git e pergunta se é um novo projeto ou uma duplicata; `doctor` sinaliza caminhos com a mesma `origin` mapeados para IDs diferentes.
-- A portabilidade entre máquinas exige a sincronização de `~/.local-backlog/` (ou aceitar estados independentes por máquina). Aceito — a ferramenta é single-machine por design.
+- A portabilidade entre máquinas exige a sincronização de `~/.local-backlog/` (ou aceitar estados independentes por máquina). Aceito — a ferramenta é projetada para uma única máquina.
 
 ## Alternativas Consideradas
 
@@ -78,4 +78,4 @@ Para cada comando:
 
 ## Relacionados
 
-- [ADR-0001 — Tenancy](0001-tenancy-estrita-por-projeto.md) — o registro é o mecanismo que entrega o tenant-id a partir do CWD.
+- [ADR-0001 — Tenancy](0001-tenancy-estrita-por-projeto.md) — o registro é o mecanismo que provê o ID do tenant a partir do CWD.
