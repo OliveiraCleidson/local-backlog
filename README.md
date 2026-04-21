@@ -29,7 +29,7 @@ This removes an entire class of mistakes: tasks leaking between repos, tag colli
 
 ## Status
 
-Pre-execution. Architectural decisions are captured under [`docs/adr/`](docs/adr/); implementation has not started yet.
+End-to-end CLI implemented: `init`, `add`, `list`, `show`, `edit`, `done`, `archive`, `tag`, `link`, `attr`, `events`, `export`, `projects`, `doctor`. Architectural decisions are captured under [`docs/adr/`](docs/adr/).
 
 The foundational choice of Rust as the implementation language is documented in [ADR-0000](docs/adr/pt-BR/0000-rust-como-linguagem-de-aprendizado.md) (canonical in `pt-BR`; translations available in `en` and `es-AR`).
 
@@ -72,30 +72,30 @@ The `T-` prefix, `[priority]` bracket, and `#hashtag` convention are stable: wri
 
 ### JSON shape
 
-The JSON export is wrapped in the standard envelope (`schema_version` + `data`) described in [ADR-0004](docs/adr/pt-BR/0004-output-contract.md):
+The JSON export uses a flat envelope — `schema_version` at the top alongside `project` and `tasks` — as declared in the export manifest:
 
 ```json
 {
   "schema_version": 1,
-  "data": {
-    "project": { "id": 1, "name": "proj", "root_path": "...", "description": null, "archived_at": null },
-    "tasks": [
-      {
-        "id": 42,
-        "title": "refactor auth middleware",
-        "status": "doing",
-        "priority": 50,
-        "type": "feature",
-        "tags": ["security", "debt"],
-        "attributes": [{ "key": "jira", "value": "ABC-123" }],
-        "links_out": [{ "from_id": 42, "to_id": 17, "kind": "blocks" }],
-        "links_in":  [{ "from_id": 99, "to_id": 42, "kind": "relates" }],
-        "events": []
-      }
-    ]
-  }
+  "project": { "id": 1, "name": "proj", "root_path": "...", "description": null, "archived_at": null },
+  "tasks": [
+    {
+      "id": 42,
+      "title": "refactor auth middleware",
+      "status": "doing",
+      "priority": 50,
+      "type": "feature",
+      "tags": ["security", "debt"],
+      "attributes": [{ "key": "jira", "value": "ABC-123" }],
+      "links_out": [{ "from_id": 42, "to_id": 17, "kind": "blocks" }],
+      "links_in":  [{ "from_id": 99, "to_id": 42, "kind": "relates" }],
+      "events": []
+    }
+  ]
 }
 ```
+
+Other read commands (`list`, `show`, `tag list`, `attr list`, `events`, `projects list`) use the generic `{schema_version, data}` envelope from [ADR-0004](docs/adr/pt-BR/0004-output-contract.md).
 
 Ordering is deterministic (priority, then `updated_at`, then `id`), so two runs against an unchanged database produce byte-identical output — safe to diff or check into a snapshot.
 
