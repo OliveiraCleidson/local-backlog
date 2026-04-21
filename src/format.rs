@@ -87,6 +87,7 @@ pub fn render_tasks_table(tasks: &[(Task, Vec<Tag>)]) -> String {
 
     let color = std::io::stdout().is_terminal();
 
+    const TITLE_MAX: usize = 60;
     // Larguras mínimas por cabeçalho.
     let mut w_id = "ID".len();
     let mut w_pri = "PRI".len();
@@ -101,7 +102,7 @@ pub fn render_tasks_table(tasks: &[(Task, Vec<Tag>)]) -> String {
             let pri = t.priority.to_string();
             let stat = t.status.clone();
             let typ = t.task_type.clone().unwrap_or_else(|| "-".into());
-            let title = t.title.clone();
+            let title = truncate_title(&t.title, TITLE_MAX);
             let tagstr = if tags.is_empty() {
                 String::new()
             } else {
@@ -169,6 +170,19 @@ fn color_status(status: &str) -> String {
         "done" => status.green().to_string(),
         "cancelled" => status.bright_black().to_string(),
         _ => status.to_string(),
+    }
+}
+
+/// Trunca título preservando até `max` caracteres; adiciona elipse `…`.
+fn truncate_title(title: &str, max: usize) -> String {
+    let chars: Vec<char> = title.chars().collect();
+    if chars.len() <= max {
+        title.to_string()
+    } else {
+        let cut = max.saturating_sub(1);
+        let mut s: String = chars.into_iter().take(cut).collect();
+        s.push('…');
+        s
     }
 }
 
