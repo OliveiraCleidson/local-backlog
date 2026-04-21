@@ -29,10 +29,11 @@ fn main() -> Result<()> {
     init_tracing(&level);
 
     let Some(cmd) = cli.command else {
-        // Sem subcomando → imprime help e sai com 0.
         use clap::CommandFactory;
-        Cli::command().print_help().ok();
-        println!();
+        let mut stderr = std::io::stderr();
+        let _ = Cli::command().write_help(&mut stderr);
+        use std::io::Write as _;
+        let _ = writeln!(stderr);
         return Ok(());
     };
 
