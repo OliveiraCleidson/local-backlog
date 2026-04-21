@@ -16,14 +16,14 @@ use crate::output::stderr_msg;
 pub struct LinkArgs {
     /// ID de origem.
     pub from: i64,
-    /// ID de destino.
-    pub to: i64,
+    /// Remove em vez de criar; toma o ID de destino como argumento.
+    #[arg(long, value_name = "TO")]
+    pub remove: Option<i64>,
+    /// ID de destino (obrigatório quando não se usa `--remove`).
+    pub to: Option<i64>,
     /// Tipo da relação (whitelist em `config.toml::link.kinds`).
     #[arg(long)]
     pub kind: String,
-    /// Remove em vez de criar.
-    #[arg(long, default_value_t = false)]
-    pub remove: bool,
 }
 
 pub fn run(args: LinkArgs, app: &mut App, cwd: &Path) -> Result<(), BacklogError> {
@@ -37,45 +37,65 @@ pub fn run(args: LinkArgs, app: &mut App, cwd: &Path) -> Result<(), BacklogError
         });
     }
 
-    if args.remove {
-        let removed =
-            link_repo::remove(&app.conn, tenant.project_id, args.from, args.to, &args.kind)?;
-        if removed {
-            events::emit(
-                &app.conn,
-                args.from,
-                "link_removed",
-                &json!({ "to": args.to, "kind": args.kind }),
-            )?;
-            stderr_msg(format!(
-                "link {} -{}-> {} removido",
-                args.from, args.kind, args.to
-            ));
-        } else {
-            stderr_msg(format!(
-                "link {} -{}-> {} não existia",
-                args.from, args.kind, args.to
+    let (to, mode) = match (args.remove, args.to) {
+        (Some(_), Some(_)) => {
+            return Err(BacklogError::InvalidInput(
+                "use `--remove <TO>` ou `<TO>` posicional, não ambos".to_string(),
             ));
         }
-    } else {
-        let created = link_repo::add(&app.conn, tenant.project_id, args.from, args.to, &args.kind)?;
-        if created {
-            events::emit(
-                &app.conn,
-                args.from,
-                "link_added",
-                &json!({ "to": args.to, "kind": args.kind }),
-            )?;
-            stderr_msg(format!(
-                "link {} -{}-> {} criado",
-                args.from, args.kind, args.to
+        (Some(to), None) => (to, Mode::Remove),
+        (None, Some(to)) => (to, Mode::Add),
+        (None, None) => {
+            return Err(BacklogError::InvalidInput(
+                "TO obrigatório (posicional ou via `--remove <TO>`)".to_string(),
             ));
-        } else {
-            stderr_msg(format!(
-                "link {} -{}-> {} já existia",
-                args.from, args.kind, args.to
-            ));
+        }
+    };
+
+    match mode {
+        Mode::Remove => {
+            let removed =
+                link_repo::remove(&app.conn, tenant.project_id, args.from, to, &args.kind)?;
+            if removed {
+                events::emit(
+                    &app.conn,
+                    args.from,
+                    "link_removed",
+                    &json!({ "from": args.from, "to": to, "kind": args.kind }),
+                )?;
+                stderr_msg(format!(
+                    "link {} -{}-> {} removido",
+                    args.from, args.kind, to
+                ));
+            } else {
+                stderr_msg(format!(
+                    "link {} -{}-> {} não existia",
+                    args.from, args.kind, to
+                ));
+            }
+        }
+        Mode::Add => {
+            let created = link_repo::add(&app.conn, tenant.project_id, args.from, to, &args.kind)?;
+            if created {
+                events::emit(
+                    &app.conn,
+                    args.from,
+                    "link_added",
+                    &json!({ "from": args.from, "to": to, "kind": args.kind }),
+                )?;
+                stderr_msg(format!("link {} -{}-> {} criado", args.from, args.kind, to));
+            } else {
+                stderr_msg(format!(
+                    "link {} -{}-> {} já existia",
+                    args.from, args.kind, to
+                ));
+            }
         }
     }
     Ok(())
+}
+
+enum Mode {
+    Add,
+    Remove,
 }

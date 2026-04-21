@@ -128,17 +128,17 @@ fn link_add_and_remove_with_whitelist() {
     let stderr = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
     assert!(stderr.contains("kind"));
 
-    // remove
+    // remove (nova sintaxe: `link FROM --remove TO --kind K`)
     run(
         base.path(),
         &cwd,
         &[
             "link",
             &a.to_string(),
+            "--remove",
             &b.to_string(),
             "--kind",
             "blocks",
-            "--remove",
         ],
     );
     let count: i64 = conn
