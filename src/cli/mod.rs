@@ -10,12 +10,16 @@ use crate::resolver::{self, ResolvedTenant};
 
 pub mod add;
 pub mod archive;
+pub mod attr;
 pub mod done;
 pub mod edit;
+pub mod events;
 pub mod init;
+pub mod link;
 pub mod list;
 pub mod projects;
 pub mod show;
+pub mod tag;
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
@@ -35,6 +39,14 @@ pub enum Command {
     Projects(projects::ProjectsArgs),
     /// Edita campos de uma task.
     Edit(edit::EditArgs),
+    /// Gerencia tags de uma task.
+    Tag(tag::TagArgs),
+    /// Cria/remove relações entre tasks.
+    Link(link::LinkArgs),
+    /// Atributos EAV (key/value) de tasks.
+    Attr(attr::AttrArgs),
+    /// Timeline de eventos da task.
+    Events(events::EventsArgs),
 }
 
 pub fn dispatch(cmd: Command, app: &mut App, cwd: &Path) -> Result<(), BacklogError> {
@@ -47,6 +59,10 @@ pub fn dispatch(cmd: Command, app: &mut App, cwd: &Path) -> Result<(), BacklogEr
         Command::Archive(args) => archive::run(args, app, cwd),
         Command::Projects(args) => projects::run(args, app, cwd),
         Command::Edit(args) => edit::run(args, app, cwd),
+        Command::Tag(args) => tag::run(args, app, cwd),
+        Command::Link(args) => link::run(args, app, cwd),
+        Command::Attr(args) => attr::run(args, app, cwd),
+        Command::Events(args) => events::run(args, app, cwd),
     }
 }
 
