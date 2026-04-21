@@ -82,8 +82,13 @@ pub fn run(args: ExportArgs, app: &mut App, cwd: &Path) -> Result<(), BacklogErr
     })?;
 
     let out = match fmt {
-        Format::Table => render_markdown(&project.name, &app.config.status.values, &rows),
-        Format::Json => render_json(&project, &rows)?,
+        Format::Table => render_markdown(
+            &project.name,
+            &app.config.status.values,
+            &rows,
+            args.include_body,
+        ),
+        Format::Json => render_json(&project, &rows, args.include_body)?,
     };
     let trimmed = out.strip_suffix('\n').unwrap_or(&out);
     stdout_data(trimmed);
@@ -211,7 +216,12 @@ fn links_in_for(
     Ok(out)
 }
 
-fn render_markdown(project_name: &str, status_order: &[String], rows: &[ExportRow]) -> String {
+fn render_markdown(
+    project_name: &str,
+    status_order: &[String],
+    rows: &[ExportRow],
+    include_body: bool,
+) -> String {
     let mut out = String::new();
     let _ = writeln!(out, "# {project_name}");
     let _ = writeln!(out);
@@ -229,7 +239,7 @@ fn render_markdown(project_name: &str, status_order: &[String], rows: &[ExportRo
         let _ = writeln!(out, "## {status}");
         let _ = writeln!(out);
         for row in bucket {
-            render_row_markdown(&mut out, row);
+            render_row_markdown(&mut out, row, include_body);
         }
         let _ = writeln!(out);
     }
@@ -243,13 +253,13 @@ fn render_markdown(project_name: &str, status_order: &[String], rows: &[ExportRo
         let _ = writeln!(out, "## other");
         let _ = writeln!(out);
         for row in fallback {
-            render_row_markdown(&mut out, row);
+            render_row_markdown(&mut out, row, include_body);
         }
     }
     out
 }
 
-fn render_row_markdown(out: &mut String, row: &ExportRow) {
+fn render_row_markdown(out: &mut String, row: &ExportRow, include_body: bool) {
     let tags = if row.tags.is_empty() {
         String::new()
     } else {
@@ -278,10 +288,12 @@ fn render_row_markdown(out: &mut String, row: &ExportRow) {
         "- T-{} [{}]{} {}{}{}",
         row.task.id, row.task.priority, typ, row.task.title, tags, archived
     );
-    if let Some(body) = row.task.body.as_deref() {
-        if !body.trim().is_empty() {
-            for line in body.lines() {
-                let _ = writeln!(out, "  > {line}");
+    if include_body {
+        if let Some(body) = row.task.body.as_deref() {
+            if !body.trim().is_empty() {
+                for line in body.lines() {
+                    let _ = writeln!(out, "  > {line}");
+                }
             }
         }
     }
@@ -373,13 +385,18 @@ struct ExportJsonPayload<'a> {
 fn render_json(
     project: &crate::domain::Project,
     rows: &[ExportRow],
+    include_body: bool,
 ) -> Result<String, BacklogError> {
     let tasks: Vec<ExportJsonTask> = rows
         .iter()
         .map(|r| ExportJsonTask {
             id: r.task.id,
             title: &r.task.title,
-            body: r.task.body.as_deref(),
+            body: if include_body {
+                r.task.body.as_deref()
+            } else {
+                None
+            },
             status: &r.task.status,
             priority: r.task.priority,
             task_type: r.task.task_type.as_deref(),

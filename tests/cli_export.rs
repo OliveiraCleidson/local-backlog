@@ -125,6 +125,13 @@ fn include_body_and_events_flags() {
     let (base, cwd) = setup();
     let id = add(base.path(), &cwd, &["t", "--body", "corpo"]);
 
+    // sem --include-body, body é omitido do markdown e do json.
+    let md_default = run(base.path(), &cwd, &["export", "--format", "markdown"]);
+    assert!(!md_default.contains("> corpo"));
+    let json_default = run(base.path(), &cwd, &["export", "--format", "json"]);
+    let v: serde_json::Value = serde_json::from_str(&json_default).unwrap();
+    assert!(v["data"]["tasks"][0]["body"].is_null());
+
     let md = run(
         base.path(),
         &cwd,
@@ -139,4 +146,12 @@ fn include_body_and_events_flags() {
     assert!(md.contains("> corpo"));
     assert!(md.contains(&format!("T-{id}")));
     assert!(md.contains("`created`"));
+
+    let json = run(
+        base.path(),
+        &cwd,
+        &["export", "--format", "json", "--include-body"],
+    );
+    let v2: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(v2["data"]["tasks"][0]["body"], "corpo");
 }
