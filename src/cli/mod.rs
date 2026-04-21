@@ -52,8 +52,26 @@ pub enum Command {
     Export(export::ExportArgs),
 }
 
+#[tracing::instrument(level = "debug", skip(app, cmd), fields(subcommand))]
 pub fn dispatch(cmd: Command, app: &mut App, cwd: &Path) -> Result<(), BacklogError> {
-    match cmd {
+    let name = match &cmd {
+        Command::Init(_) => "init",
+        Command::Add(_) => "add",
+        Command::List(_) => "list",
+        Command::Show(_) => "show",
+        Command::Done(_) => "done",
+        Command::Archive(_) => "archive",
+        Command::Projects(_) => "projects",
+        Command::Edit(_) => "edit",
+        Command::Tag(_) => "tag",
+        Command::Link(_) => "link",
+        Command::Attr(_) => "attr",
+        Command::Events(_) => "events",
+        Command::Export(_) => "export",
+    };
+    tracing::Span::current().record("subcommand", name);
+    let started = std::time::Instant::now();
+    let result = match cmd {
         Command::Init(args) => init::run(args, app, cwd),
         Command::Add(args) => add::run(args, app, cwd),
         Command::List(args) => list::run(args, app, cwd),
@@ -67,7 +85,13 @@ pub fn dispatch(cmd: Command, app: &mut App, cwd: &Path) -> Result<(), BacklogEr
         Command::Attr(args) => attr::run(args, app, cwd),
         Command::Events(args) => events::run(args, app, cwd),
         Command::Export(args) => export::run(args, app, cwd),
-    }
+    };
+    tracing::debug!(
+        elapsed_ms = started.elapsed().as_millis() as u64,
+        subcommand = name,
+        "subcommand finished"
+    );
+    result
 }
 
 /// Resolve o tenant da CWD; usado por todos subcomandos de dados.
