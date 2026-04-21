@@ -130,10 +130,17 @@ fn task_links_cross_project_insert_is_blocked() {
 
 #[test]
 fn tasks_project_id_is_immutable() {
+    // Reproduz o cenário que motivou o trigger: parent com filho real
+    // apontando via parent_id. Antes do fix, mudar project_id do parent
+    // deixava a relação pai/filho cross-project silenciosamente.
     let conn = setup();
     let parent = insert_task(&conn, 1, "parent");
-    let _child = insert_task(&conn, 1, "child");
-    // Reatribuir o parent ao projeto 2 deixaria filho cross-project.
+    conn.execute(
+        "INSERT INTO tasks (project_id, title, status, parent_id) \
+         VALUES (1, 'child', 'todo', ?1)",
+        [parent],
+    )
+    .unwrap();
     let err = conn
         .execute("UPDATE tasks SET project_id = 2 WHERE id = ?1", [parent])
         .unwrap_err();
