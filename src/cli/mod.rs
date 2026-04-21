@@ -9,6 +9,8 @@ use crate::error::BacklogError;
 use crate::resolver::{self, ResolvedTenant};
 
 pub mod add;
+pub mod archive;
+pub mod done;
 pub mod init;
 pub mod list;
 pub mod show;
@@ -23,6 +25,10 @@ pub enum Command {
     List(list::ListArgs),
     /// Mostra uma task agregada (tags, atributos, links, eventos).
     Show(show::ShowArgs),
+    /// Marca a task como concluída.
+    Done(done::DoneArgs),
+    /// Arquiva uma task (soft delete).
+    Archive(archive::ArchiveArgs),
 }
 
 pub fn dispatch(cmd: Command, app: &mut App, cwd: &Path) -> Result<(), BacklogError> {
@@ -31,6 +37,8 @@ pub fn dispatch(cmd: Command, app: &mut App, cwd: &Path) -> Result<(), BacklogEr
         Command::Add(args) => add::run(args, app, cwd),
         Command::List(args) => list::run(args, app, cwd),
         Command::Show(args) => show::run(args, app, cwd),
+        Command::Done(args) => done::run(args, app, cwd),
+        Command::Archive(args) => archive::run(args, app, cwd),
     }
 }
 
