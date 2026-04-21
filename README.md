@@ -1,5 +1,9 @@
 # local-backlog
 
+<p align="center">
+  <img src="docs/assets/logo.webp" alt="local-backlog logo" width="280">
+</p>
+
 A personal, project-scoped backlog CLI backed by a single local SQLite database.
 
 `local-backlog` is designed to live on every machine where its author codes. You install it once with `cargo install`, and from then on every repository you enter becomes its own isolated backlog: tasks, tags, attributes, links, and events — all tenant-isolated by project. No cloud, no sync, no server. Just a binary and a `.db` file under `~/.local-backlog/`.
