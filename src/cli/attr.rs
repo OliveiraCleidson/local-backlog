@@ -8,7 +8,7 @@ use serde_json::json;
 use crate::bootstrap::App;
 use crate::cli::resolve_tenant;
 use crate::db::events;
-use crate::db::repo::attr_repo;
+use crate::db::repo::{attr_repo, task_repo};
 use crate::error::BacklogError;
 use crate::format::{Format, JsonEnvelope};
 use crate::output::{stderr_msg, stdout_data};
@@ -104,6 +104,9 @@ fn list(args: ListArgs, app: &App, cwd: &Path) -> Result<(), BacklogError> {
         value: args.format.clone(),
         allowed: "table, json".to_string(),
     })?;
+    if !task_repo::exists(&app.conn, tenant.project_id, args.id)? {
+        return Err(BacklogError::TaskNotFound { id: args.id });
+    }
     let attrs = attr_repo::list_for_task(&app.conn, tenant.project_id, args.id)?;
 
     let out = match fmt {
