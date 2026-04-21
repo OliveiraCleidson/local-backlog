@@ -42,6 +42,22 @@ impl Registry {
         }
     }
 
+    /// Como `load`, mas TOML inválido devolve registro vazio + razão — permite
+    /// que `backlog doctor` rode mesmo com `registry.toml` quebrado.
+    pub fn load_tolerant(path: &Path) -> Result<(Self, Option<String>), BacklogError> {
+        match fs::read_to_string(path) {
+            Ok(text) => match toml::from_str::<Self>(&text) {
+                Ok(reg) => Ok((reg, None)),
+                Err(e) => Ok((Self::default(), Some(e.to_string()))),
+            },
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok((Self::default(), None)),
+            Err(source) => Err(BacklogError::Io {
+                path: path.to_path_buf(),
+                source,
+            }),
+        }
+    }
+
     /// Escreve atomicamente: write em `.tmp` + `rename`.
     pub fn save_atomic(&self, path: &Path) -> Result<(), BacklogError> {
         let text = toml::to_string_pretty(self).map_err(|e| BacklogError::RegistryCorrupt {

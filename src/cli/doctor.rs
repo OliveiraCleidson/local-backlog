@@ -53,7 +53,13 @@ enum FixableIssue {
 pub fn run(args: DoctorArgs, app: &mut App, _cwd: &Path) -> Result<(), BacklogError> {
     let mut report = Report::default();
 
+    if let Some(reason) = app.registry_corrupt.as_deref() {
+        report.errors.push(format!(
+            "registry.toml inválido: {reason} (corrija manualmente ou apague o arquivo)"
+        ));
+    }
     check_integrity(&app.conn, &mut report)?;
+    check_user_version(&app.conn, &mut report)?;
     check_registry(app, &mut report)?;
     check_projects_vs_registry(app, &mut report)?;
     check_orphans(&app.conn, &mut report)?;
@@ -84,6 +90,20 @@ fn check_integrity(conn: &rusqlite::Connection, report: &mut Report) -> Result<(
         report
             .errors
             .push(format!("integrity_check falhou: {result}"));
+    }
+    Ok(())
+}
+
+fn check_user_version(
+    conn: &rusqlite::Connection,
+    report: &mut Report,
+) -> Result<(), BacklogError> {
+    let actual: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+    let expected = crate::db::migrations::EXPECTED_USER_VERSION;
+    if actual != expected {
+        report.errors.push(format!(
+            "user_version divergente: DB={actual}, binário espera={expected}"
+        ));
     }
     Ok(())
 }

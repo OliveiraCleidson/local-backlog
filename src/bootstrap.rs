@@ -25,6 +25,9 @@ pub struct App {
     pub registry_path: PathBuf,
     pub config_path: PathBuf,
     pub db_path: PathBuf,
+    /// Razão do parse do `registry.toml` ter falhado, quando aplicável.
+    /// Bootstrap continua com registro vazio; `doctor` reporta o erro.
+    pub registry_corrupt: Option<String>,
 }
 
 impl App {
@@ -65,7 +68,14 @@ impl App {
         }
 
         let config = Config::load(Some(&config_path), None)?;
-        let registry = Registry::load(&registry_path)?;
+        let (registry, registry_corrupt) = Registry::load_tolerant(&registry_path)?;
+        if let Some(reason) = &registry_corrupt {
+            tracing::warn!(
+                path = %registry_path.display(),
+                reason = %reason,
+                "registry.toml inválido; seguindo com registro vazio (rode `backlog doctor`)"
+            );
+        }
         let conn = db::open(&db_path)?;
 
         Ok(Self {
@@ -76,6 +86,7 @@ impl App {
             registry_path,
             config_path,
             db_path,
+            registry_corrupt,
         })
     }
 
