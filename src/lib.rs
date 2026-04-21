@@ -5,3 +5,5 @@ pub mod domain;
 pub mod error;
 pub mod format;
 pub mod output;
+pub mod registry;
+pub mod resolver;
