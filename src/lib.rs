@@ -1,5 +1,6 @@
 pub mod bootstrap;
 pub mod cli;
+pub mod cli_root;
 pub mod config;
 pub mod db;
 pub mod domain;

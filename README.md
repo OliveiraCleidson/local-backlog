@@ -21,6 +21,83 @@ The tool is meant to be **copied between machines and used across every reposito
 
 When this project is stable, `cargo install local-backlog` on a new machine plus `backlog init` inside each repository is all that is required.
 
+## Install
+
+Until the crate is published, install from a local clone:
+
+```sh
+git clone https://github.com/OliveiraCleidson/local-backlog
+cd local-backlog
+cargo install --path . --locked
+```
+
+The binary is named `backlog`. All state lives under `~/.local-backlog/` (overridable via `LOCAL_BACKLOG_HOME`). The directory is bootstrapped on first run — no manual setup required.
+
+Once published, `cargo install local-backlog` will be enough.
+
+## Quickstart
+
+```sh
+cd ~/code/my-project
+backlog init --yes                                     # register the current repo
+backlog add "Refactor auth middleware" \
+    --type feature --tag security --priority 50        # create a task
+backlog list                                           # tabular view
+backlog list --format json                             # LLM / pipeline-friendly
+backlog show 1                                         # full task detail
+backlog done 1                                         # mark complete
+backlog export --format markdown                       # project context for an LLM
+```
+
+Every command above is scoped to the project inferred from the current directory. There is no `--all-projects` flag by design.
+
+## Commands
+
+| Command | Purpose |
+|---|---|
+| `backlog init` | Register the current directory as a project in the global registry. |
+| `backlog add` | Create a task in the current tenant. |
+| `backlog list` | List tasks with filters (`--status`, `--tag`, `--type`, `--priority`, `--parent`, `--include-archived`, `--limit`, `--format`). |
+| `backlog show <ID>` | Show a task plus its tags, attributes, links, and recent events. |
+| `backlog edit <ID>` | Update title, body, status, priority, type, or parent. Empty string clears a field; omit to keep current. |
+| `backlog done <ID>` | Transition a task to `done` and stamp `completed_at`. |
+| `backlog archive <ID>` | Soft-delete a task (hidden from `list` unless `--include-archived`). |
+| `backlog tag <ID> {add\|remove} <NAME>` / `backlog tag list` | Manage tags and view tenant-wide usage counts. |
+| `backlog link <FROM> <TO> --kind <KIND>` | Relate two tasks (`blocks`, `relates`, `duplicates`, `spawned-from-plan`). `--remove` to undo. |
+| `backlog attr <ID> {set\|unset\|list}` | EAV-style key/value attributes per task. |
+| `backlog events <ID>` | Show the event timeline (`--kind`, `--limit`, `--format`). |
+| `backlog export` | Dump the current tenant as markdown or JSON for LLM context. |
+| `backlog projects {list\|show\|relink\|archive}` | Cross-tenant administration of the project registry. |
+| `backlog doctor` | Diagnose registry ↔ DB divergence, tenancy violations, schema drift. `--fix` cleans dangling registry entries. |
+| `backlog completions <SHELL>` | Emit a shell completion script to stdout (see below). |
+
+## Shell completions
+
+`backlog completions <SHELL>` writes a completion script to stdout for `bash`, `zsh`, `fish`, `powershell`, or `elvish`. Install once per shell:
+
+```sh
+# bash
+backlog completions bash > ~/.local/share/bash-completion/completions/backlog
+
+# zsh (ensure the target dir is in $fpath)
+backlog completions zsh > "${fpath[1]}/_backlog"
+
+# fish
+backlog completions fish > ~/.config/fish/completions/backlog.fish
+
+# elvish (add `use backlog` to ~/.config/elvish/rc.elv)
+backlog completions elvish > ~/.config/elvish/lib/backlog.elv
+```
+
+For PowerShell, write the script to a file and source it from your profile so
+completions persist across sessions:
+
+```powershell
+New-Item -ItemType Directory -Force -Path (Split-Path $PROFILE) | Out-Null
+backlog completions powershell | Out-File -Encoding utf8 "$HOME\backlog.ps1"
+Add-Content -Path $PROFILE -Value '. $HOME\backlog.ps1'
+```
+
 ## Strict tenancy
 
 Every repository is its own tenant. Commands like `backlog list`, `backlog add`, `backlog tag` only ever see data belonging to the project inferred from the current working directory. There is no `--all-projects` escape hatch in data commands; the only cross-tenant surface is `backlog projects ...`, which operates on metadata, never on task content.
@@ -29,7 +106,7 @@ This removes an entire class of mistakes: tasks leaking between repos, tag colli
 
 ## Status
 
-End-to-end CLI implemented: `init`, `add`, `list`, `show`, `edit`, `done`, `archive`, `tag`, `link`, `attr`, `events`, `export`, `projects`, `doctor`. Architectural decisions are captured under [`docs/adr/`](docs/adr/).
+End-to-end CLI implemented: `init`, `add`, `list`, `show`, `edit`, `done`, `archive`, `tag`, `link`, `attr`, `events`, `export`, `projects`, `doctor`, `completions`. Architectural decisions are captured under [`docs/adr/`](docs/adr/).
 
 The foundational choice of Rust as the implementation language is documented in [ADR-0000](docs/adr/pt-BR/0000-rust-como-linguagem-de-aprendizado.md) (canonical in `pt-BR`; translations available in `en` and `es-AR`).
 

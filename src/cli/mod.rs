@@ -12,6 +12,7 @@ use crate::resolver::{self, ResolvedTenant};
 pub mod add;
 pub mod archive;
 pub mod attr;
+pub mod completions;
 pub mod doctor;
 pub mod done;
 pub mod edit;
@@ -54,6 +55,8 @@ pub enum Command {
     Export(export::ExportArgs),
     /// Diagnóstico e recuperação leve (`--fix` para limpar registry).
     Doctor(doctor::DoctorArgs),
+    /// Gera script de completion para o shell escolhido (stdout).
+    Completions(completions::CompletionsArgs),
 }
 
 #[tracing::instrument(level = "debug", skip(app, cmd), fields(subcommand))]
@@ -73,6 +76,7 @@ pub fn dispatch(cmd: Command, app: &mut App, cwd: &Path) -> Result<(), BacklogEr
         Command::Events(_) => "events",
         Command::Export(_) => "export",
         Command::Doctor(_) => "doctor",
+        Command::Completions(_) => "completions",
     };
     tracing::Span::current().record("subcommand", name);
     let started = std::time::Instant::now();
@@ -91,6 +95,7 @@ pub fn dispatch(cmd: Command, app: &mut App, cwd: &Path) -> Result<(), BacklogEr
         Command::Events(args) => events::run(args, app, cwd),
         Command::Export(args) => export::run(args, app, cwd),
         Command::Doctor(args) => doctor::run(args, app, cwd),
+        Command::Completions(args) => completions::run(args),
     };
     tracing::debug!(
         elapsed_ms = started.elapsed().as_millis() as u64,

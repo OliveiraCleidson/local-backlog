@@ -1,23 +1,9 @@
 use clap::Parser;
-use clap_verbosity_flag::{Verbosity, WarnLevel};
 use miette::Result;
 
 use local_backlog::bootstrap::App;
 use local_backlog::cli;
-
-#[derive(Parser, Debug)]
-#[command(
-    name = "backlog",
-    about = "Gerenciador de backlog local por projeto.",
-    version
-)]
-struct Cli {
-    #[command(flatten)]
-    verbose: Verbosity<WarnLevel>,
-
-    #[command(subcommand)]
-    command: Option<cli::Command>,
-}
+use local_backlog::cli_root::Cli;
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -36,6 +22,15 @@ fn main() -> Result<()> {
         let _ = writeln!(stderr);
         return Ok(());
     };
+
+    // Subcomandos stateless rodam antes de `App::bootstrap`: não precisam de
+    // DB, registry nem `~/.local-backlog/`. Isso permite rodar o comando em
+    // provisioning de dotfiles, imagens Docker e CI onde o home global ainda
+    // não existe ou é read-only.
+    if let cli::Command::Completions(args) = cmd {
+        cli::completions::run(args)?;
+        return Ok(());
+    }
 
     let cwd = std::env::current_dir().map_err(|source| local_backlog::error::BacklogError::Io {
         path: std::path::PathBuf::from("."),
