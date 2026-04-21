@@ -13,6 +13,7 @@ pub mod archive;
 pub mod done;
 pub mod init;
 pub mod list;
+pub mod projects;
 pub mod show;
 
 #[derive(Subcommand, Debug)]
@@ -29,6 +30,8 @@ pub enum Command {
     Done(done::DoneArgs),
     /// Arquiva uma task (soft delete).
     Archive(archive::ArchiveArgs),
+    /// Administra projetos (superfície cross-tenant).
+    Projects(projects::ProjectsArgs),
 }
 
 pub fn dispatch(cmd: Command, app: &mut App, cwd: &Path) -> Result<(), BacklogError> {
@@ -39,6 +42,7 @@ pub fn dispatch(cmd: Command, app: &mut App, cwd: &Path) -> Result<(), BacklogEr
         Command::Show(args) => show::run(args, app, cwd),
         Command::Done(args) => done::run(args, app, cwd),
         Command::Archive(args) => archive::run(args, app, cwd),
+        Command::Projects(args) => projects::run(args, app, cwd),
     }
 }
 
