@@ -47,7 +47,7 @@ Each event has a `kind` and a JSON `payload`. The table below documents the set 
 
 | `kind`           | Emitted by                          | Payload                                                      |
 |------------------|-------------------------------------|--------------------------------------------------------------|
-| `created`        | `backlog add`                       | `{ "title": string, "type": string, "priority": integer }`   |
+| `created`        | `backlog add`                       | `{ "title": string, "type": string\|null, "priority": integer }` |
 | `status_changed` | `backlog done`                      | `{ "from": string, "to": string }`                           |
 | `archived`       | `backlog archive`                   | `{}`                                                         |
 | `field_changed`  | `backlog edit` (one event per changed field) | `{ "field": string, "from": any\|null, "to": any\|null }` |
