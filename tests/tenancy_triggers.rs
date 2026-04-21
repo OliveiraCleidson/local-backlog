@@ -1,5 +1,6 @@
-//! Testes dos 6 triggers de tenancy (ADR-0001) garantindo que
-//! relacionamentos cross-project são bloqueados com `RAISE(ABORT, ...)`.
+//! Testes dos triggers de tenancy (ADR-0001): relacionamentos cross-project
+//! são bloqueados com `RAISE(ABORT, ...)` e `project_id` é imutável em
+//! `tasks` e `tags` (tenant é identidade, não atributo editável).
 
 use local_backlog::db;
 use rusqlite::Connection;
@@ -125,6 +126,35 @@ fn task_links_cross_project_insert_is_blocked() {
     assert!(err
         .to_string()
         .contains("links entre projetos não são permitidos"));
+}
+
+#[test]
+fn tasks_project_id_is_immutable() {
+    let conn = setup();
+    let parent = insert_task(&conn, 1, "parent");
+    let _child = insert_task(&conn, 1, "child");
+    // Reatribuir o parent ao projeto 2 deixaria filho cross-project.
+    let err = conn
+        .execute("UPDATE tasks SET project_id = 2 WHERE id = ?1", [parent])
+        .unwrap_err();
+    assert!(err.to_string().contains("tasks.project_id é imutável"));
+}
+
+#[test]
+fn tags_project_id_is_immutable() {
+    let conn = setup();
+    let task = insert_task(&conn, 1, "t");
+    let tag = insert_tag(&conn, 1, "auth");
+    conn.execute(
+        "INSERT INTO task_tags (task_id, tag_id) VALUES (?1, ?2)",
+        [task, tag],
+    )
+    .unwrap();
+    // Reatribuir a tag ao projeto 2 deixaria o vínculo cross-project.
+    let err = conn
+        .execute("UPDATE tags SET project_id = 2 WHERE id = ?1", [tag])
+        .unwrap_err();
+    assert!(err.to_string().contains("tags.project_id é imutável"));
 }
 
 #[test]

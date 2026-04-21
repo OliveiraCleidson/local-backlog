@@ -36,12 +36,21 @@ BEGIN
 END;
 
 CREATE TRIGGER tasks_parent_same_project_update
-BEFORE UPDATE OF project_id, parent_id ON tasks
+BEFORE UPDATE OF parent_id ON tasks
 WHEN NEW.parent_id IS NOT NULL
 BEGIN
     SELECT CASE WHEN (
         NEW.project_id <> (SELECT project_id FROM tasks WHERE id = NEW.parent_id)
     ) THEN RAISE(ABORT, 'parent e child de projetos diferentes') END;
+END;
+
+-- Tenant é identidade: tasks.project_id é imutável (ADR-0001). Reatribuir
+-- um task a outro projeto é semanticamente delete + recreate.
+CREATE TRIGGER tasks_project_id_immutable
+BEFORE UPDATE OF project_id ON tasks
+WHEN NEW.project_id <> OLD.project_id
+BEGIN
+    SELECT RAISE(ABORT, 'tasks.project_id é imutável');
 END;
 
 CREATE TABLE tags (
@@ -50,6 +59,15 @@ CREATE TABLE tags (
     name        TEXT NOT NULL,
     UNIQUE (project_id, name)
 );
+
+-- Mesma razão de tasks_project_id_immutable: o tenant de uma tag é
+-- imutável. Renomear é OK, mudar de projeto não (ADR-0001).
+CREATE TRIGGER tags_project_id_immutable
+BEFORE UPDATE OF project_id ON tags
+WHEN NEW.project_id <> OLD.project_id
+BEGIN
+    SELECT RAISE(ABORT, 'tags.project_id é imutável');
+END;
 
 CREATE TABLE task_tags (
     task_id  INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,

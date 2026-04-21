@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.78"
 description = "CLI para gerenciar backlog pessoal em SQLite local, isolado por projeto."
 license = "MIT"
-repository = "https://github.com/cleidsonoliveira/local-backlog"
+repository = "https://github.com/OliveiraCleidson/local-backlog"
 
 [[bin]]
 name = "backlog"
