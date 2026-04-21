@@ -1,7 +1,8 @@
 use clap::Parser;
-use clap_verbosity_flag::{InfoLevel, Verbosity};
+use clap_verbosity_flag::{Verbosity, WarnLevel};
 use miette::Result;
 
+use local_backlog::bootstrap::App;
 use local_backlog::cli;
 
 #[derive(Parser, Debug)]
@@ -12,7 +13,7 @@ use local_backlog::cli;
 )]
 struct Cli {
     #[command(flatten)]
-    verbose: Verbosity<InfoLevel>,
+    verbose: Verbosity<WarnLevel>,
 
     #[command(subcommand)]
     command: Option<cli::Command>,
@@ -27,10 +28,21 @@ fn main() -> Result<()> {
         .to_ascii_lowercase();
     init_tracing(&level);
 
-    match cli.command {
-        Some(cmd) => cli::dispatch(cmd),
-        None => Ok(()),
-    }
+    let Some(cmd) = cli.command else {
+        // Sem subcomando → imprime help e sai com 0.
+        use clap::CommandFactory;
+        Cli::command().print_help().ok();
+        println!();
+        return Ok(());
+    };
+
+    let cwd = std::env::current_dir().map_err(|source| local_backlog::error::BacklogError::Io {
+        path: std::path::PathBuf::from("."),
+        source,
+    })?;
+    let mut app = App::bootstrap()?;
+    cli::dispatch(cmd, &mut app, &cwd)?;
+    Ok(())
 }
 
 fn init_tracing(default: &str) {

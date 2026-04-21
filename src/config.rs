@@ -110,9 +110,16 @@ impl Config {
     }
 }
 
+/// Resolve `~/.local-backlog/` ou a pasta indicada por
+/// `LOCAL_BACKLOG_HOME` (usado em testes e para rodar em sandbox).
 pub fn ensure_base_dir() -> Result<PathBuf, BacklogError> {
-    let home = dirs::home_dir().ok_or(BacklogError::HomeNotFound)?;
-    let base = home.join(".local-backlog");
+    let base = match std::env::var_os("LOCAL_BACKLOG_HOME") {
+        Some(p) => PathBuf::from(p),
+        None => {
+            let home = dirs::home_dir().ok_or(BacklogError::HomeNotFound)?;
+            home.join(".local-backlog")
+        }
+    };
     std::fs::create_dir_all(&base).map_err(|source| BacklogError::Io {
         path: base.clone(),
         source,

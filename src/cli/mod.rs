@@ -1,24 +1,24 @@
+//! Subcomandos do binário `backlog`.
+//!
+//! Cada módulo expõe um `XxxArgs` (derive clap) + `run(args, app, cwd)`.
+
+use std::path::Path;
+
 use clap::Subcommand;
-use miette::Result;
+
+use crate::bootstrap::App;
+use crate::error::BacklogError;
+
+pub mod init;
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
-    /// Registra o projeto atual.
-    Init,
-    /// Adiciona uma task no tenant atual.
-    Add,
-    /// Lista tasks do tenant atual.
-    List,
-    /// Mostra uma task.
-    Show,
-    /// Marca uma task como concluída.
-    Done,
-    /// Arquiva uma task.
-    Archive,
+    /// Registra o projeto atual no registry global.
+    Init(init::InitArgs),
 }
 
-pub fn dispatch(_cmd: Command) -> Result<()> {
-    use crate::output::stderr_msg;
-    stderr_msg("comando ainda não implementado");
-    Ok(())
+pub fn dispatch(cmd: Command, app: &mut App, cwd: &Path) -> Result<(), BacklogError> {
+    match cmd {
+        Command::Init(args) => init::run(args, app, cwd),
+    }
 }
